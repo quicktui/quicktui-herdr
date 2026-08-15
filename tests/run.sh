@@ -155,13 +155,14 @@ assert manifest["min_herdr_version"] == "0.8.0"
 assert manifest["platforms"] == ["linux", "macos"]
 assert manifest["startup"][0]["command"] == ["./scripts/startup.sh"]
 actions = {item["id"]: item for item in manifest["actions"]}
-assert actions["setup"]["command"] == ["./scripts/setup.sh"]
-assert actions["pair-qrcode"]["command"] == ["./scripts/pair-qrcode.sh"]
+assert actions["setup"]["command"] == ["./scripts/open-pane.sh", "setup"]
+assert actions["pair-qrcode"]["command"] == ["./scripts/open-pane.sh", "pair-qrcode"]
 assert "workspace" in actions["setup"]["contexts"]
 assert "global" in actions["setup"]["contexts"]
 panes = {item["id"]: item for item in manifest["panes"]}
 assert panes["setup"]["command"] == ["./scripts/setup.sh"]
 assert panes["setup"]["placement"] == "popup"
+assert panes["pair-qrcode"]["command"] == ["./scripts/pair-qrcode.sh"]
 print("ok")
 PY
 then
@@ -184,7 +185,7 @@ else
 	fail "scripts contain no eval or sh -c"
 fi
 
-for _script in startup.sh setup.sh pair-qrcode.sh; do
+for _script in startup.sh setup.sh pair-qrcode.sh open-pane.sh; do
 	if [ -x "$ROOT/scripts/$_script" ]; then
 		pass "scripts/$_script is executable"
 	else
@@ -351,6 +352,73 @@ fi
 run_qr </dev/null
 assert_eq "qrcode refuses invalid config" "$RC" 3
 assert_file_not_contains "invalid config does not exec pairing" "$CASE/qt.log" "pairing"
+cleanup_case
+
+# --- invalid overrides keep explicit status ---
+new_case
+export QUICKTUI_SERVER_BIN=relative/bad
+run_startup
+assert_eq "relative QUICKTUI_SERVER_BIN exits 0" "$RC" 0
+assert_file_contains "relative bin is invalid_bin" "$CASE/out" "status=invalid_bin"
+run_setup </dev/null
+assert_eq "setup invalid_bin exits 3" "$RC" 3
+cleanup_case
+
+new_case
+export QUICKTUI_SERVER_BIN=$CASE/bin/quicktui-server
+export QUICKTUI_CONFIG=relative/config.toml
+run_startup
+assert_eq "relative QUICKTUI_CONFIG exits 0" "$RC" 0
+assert_file_contains "relative config is invalid_config" "$CASE/out" "status=invalid_config"
+run_qr </dev/null
+assert_eq "qrcode invalid_config exits 3" "$RC" 3
+assert_file_not_contains "invalid config does not exec pairing" "$CASE/qt.log" "pairing"
+cleanup_case
+
+# --- official scheme listen addresses ---
+new_case
+PORT=$(free_port)
+start_capability "$PORT"
+export QUICKTUI_SERVER_BIN=$CASE/bin/quicktui-server
+export QUICKTUI_CONFIG=$CASE/http.toml
+printf 'addr = "http://127.0.0.1:%s"\n' "$PORT" >"$QUICKTUI_CONFIG"
+run_startup
+assert_eq "http scheme config is ready" "$RC" 0
+assert_file_contains "http scheme status" "$CASE/out" "status=ready"
+stop_capability
+cleanup_case
+
+new_case
+PORT=$(free_port)
+start_capability "$PORT"
+export QUICKTUI_SERVER_BIN=$CASE/bin/quicktui-server
+export QUICKTUI_CONFIG=$CASE/https.toml
+printf 'addr = "https://127.0.0.1:%s"\n' "$PORT" >"$QUICKTUI_CONFIG"
+run_startup
+assert_eq "https scheme config still probes http locally" "$RC" 0
+assert_file_contains "https scheme status" "$CASE/out" "status=ready"
+stop_capability
+cleanup_case
+
+# --- actions open panes instead of pairing without a TTY ---
+new_case
+set +e
+"$ROOT/scripts/open-pane.sh" setup >"$CASE/out" 2>"$CASE/err"
+RC=$?
+set -e
+assert_eq "open-pane setup exits 0" "$RC" 0
+assert_file_contains "open-pane setup argv" "$CASE/herdr.log" "plugin pane open --plugin ai.quicktui --entrypoint setup"
+set +e
+"$ROOT/scripts/open-pane.sh" pair-qrcode >"$CASE/out" 2>"$CASE/err"
+RC=$?
+set -e
+assert_file_contains "open-pane qrcode argv" "$CASE/herdr.log" "plugin pane open --plugin ai.quicktui --entrypoint pair-qrcode"
+set +e
+"$ROOT/scripts/open-pane.sh" 'setup;touch-pwned' >"$CASE/out" 2>"$CASE/err"
+RC=$?
+set -e
+assert_eq "open-pane rejects unknown entrypoint" "$RC" 2
+assert_file_not_contains "unknown entrypoint is not passed through" "$CASE/herdr.log" "touch-pwned"
 cleanup_case
 
 # --- leftover children ---

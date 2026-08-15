@@ -7,7 +7,6 @@ QT_INVALID=3
 QT_NOT_READY=4
 QT_CLI_FAILED=5
 
-QT_PLUGIN_ID_EXPECTED=ai.quicktui
 QT_DEFAULT_LISTEN=0.0.0.0:8022
 QT_CAPABILITY_PATH=/.well-known/quicktui-server-capability
 QT_INSTALL_GLOBAL='curl -fsSL https://quicktui.ai/q.sh | sh'
@@ -244,35 +243,48 @@ qt_read_toml_addr() {
 		return 1
 	fi
 	awk '
-		BEGIN { found = 0 }
+		BEGIN { status = 1 }
 		{
 			line = $0
 			sub(/[ \t]*#.*$/, "", line)
 			if (line !~ /^[ \t]*addr[ \t]*=[ \t]*/) next
 			sub(/^[ \t]*addr[ \t]*=[ \t]*/, "", line)
-			if (index(line, "\"\"\"") == 1) exit 2
+			if (index(line, "\"\"\"") == 1) { status = 2; exit }
 			if (line ~ /^"/) {
-				if (line !~ /^"[^"]*"[ \t]*$/) exit 2
+				if (line !~ /^"[^"]*"[ \t]*$/) { status = 2; exit }
 				gsub(/^"/, "", line)
 				gsub(/"[ \t]*$/, "", line)
 			} else if (line ~ /^'\''/) {
-				if (line !~ /^'\''[^'\'']*'\''[ \t]*$/) exit 2
+				if (line !~ /^'\''[^'\'']*'\''[ \t]*$/) { status = 2; exit }
 				gsub(/^'\''/, "", line)
 				gsub(/'\''[ \t]*$/, "", line)
 			} else {
 				gsub(/[ \t]*$/, "", line)
 			}
-			if (line == "" || line ~ /[[:cntrl:]]/) exit 2
+			if (line == "" || line ~ /[[:cntrl:]]/) { status = 2; exit }
 			print line
-			found = 1
-			exit 0
+			status = 0
+			exit
 		}
-		END { if (found == 0) exit 1 }
+		END { exit status }
 	' "$_qt_file"
 }
 
+qt_strip_listen_scheme() {
+	# Official config accepts optional http(s)://. Probe stays plaintext HTTP.
+	_qt_raw=$1
+	case $_qt_raw in
+	[hH][tT][tT][pP][sS]://* | [hH][tT][tT][pP]://*)
+		printf '%s\n' "${_qt_raw#*://}"
+		;;
+	*)
+		printf '%s\n' "$_qt_raw"
+		;;
+	esac
+}
+
 qt_split_listen_addr() {
-	_qt_addr=$1
+	_qt_addr=$(qt_strip_listen_scheme "$1")
 	if ! qt_is_safe_text "$_qt_addr" 253; then
 		return 1
 	fi
@@ -487,26 +499,28 @@ qt_discover() {
 
 	qt_herdr_session_probe || true
 
-	if ! QT_SERVER_BIN=$(qt_find_server_bin); then
-		_qt_find_rc=$?
+	_qt_find_rc=0
+	QT_SERVER_BIN=$(qt_find_server_bin) || _qt_find_rc=$?
+	if [ "$_qt_find_rc" -ne 0 ]; then
 		if [ "$_qt_find_rc" -eq "$QT_INVALID" ]; then
 			QT_STATUS=invalid_bin
 			return 0
 		fi
 		QT_STATUS=missing
-		if QT_CONFIG_PATH=$(qt_resolve_config_path); then
-			if [ -f "$QT_CONFIG_PATH" ]; then
-				QT_CONFIG_PRESENT=1
-			fi
-		else
+		_qt_cfg_rc=0
+		QT_CONFIG_PATH=$(qt_resolve_config_path) || _qt_cfg_rc=$?
+		if [ "$_qt_cfg_rc" -ne 0 ]; then
 			QT_CONFIG_PATH=
+		elif [ -f "$QT_CONFIG_PATH" ]; then
+			QT_CONFIG_PRESENT=1
 		fi
 		return 0
 	fi
 	QT_SERVER_PRESENT=1
 
-	if ! QT_CONFIG_PATH=$(qt_resolve_config_path); then
-		_qt_cfg_rc=$?
+	_qt_cfg_rc=0
+	QT_CONFIG_PATH=$(qt_resolve_config_path) || _qt_cfg_rc=$?
+	if [ "$_qt_cfg_rc" -ne 0 ]; then
 		if [ "$_qt_cfg_rc" -eq "$QT_INVALID" ]; then
 			QT_STATUS=invalid_config
 			return 0
@@ -517,13 +531,14 @@ qt_discover() {
 	_qt_listen=$QT_DEFAULT_LISTEN
 	if [ -n "$QT_CONFIG_PATH" ] && [ -f "$QT_CONFIG_PATH" ]; then
 		QT_CONFIG_PRESENT=1
-		if ! _qt_addr=$(qt_read_toml_addr "$QT_CONFIG_PATH"); then
-			_qt_addr_rc=$?
-			if [ "$_qt_addr_rc" -eq 2 ]; then
-				QT_STATUS=invalid_config
-				return 0
-			fi
-		else
+		_qt_addr=
+		_qt_addr_rc=0
+		_qt_addr=$(qt_read_toml_addr "$QT_CONFIG_PATH") || _qt_addr_rc=$?
+		if [ "$_qt_addr_rc" -eq 2 ]; then
+			QT_STATUS=invalid_config
+			return 0
+		fi
+		if [ "$_qt_addr_rc" -eq 0 ]; then
 			_qt_listen=$_qt_addr
 		fi
 	fi
@@ -533,11 +548,12 @@ qt_discover() {
 		return 0
 	fi
 
-	if qt_probe_capability "$QT_PROBE_HOST" "$QT_PROBE_PORT"; then
+	_qt_probe_rc=0
+	qt_probe_capability "$QT_PROBE_HOST" "$QT_PROBE_PORT" || _qt_probe_rc=$?
+	if [ "$_qt_probe_rc" -eq 0 ]; then
 		QT_STATUS=ready
 		return 0
 	fi
-	_qt_probe_rc=$?
 	if [ "$_qt_probe_rc" -eq 2 ]; then
 		QT_STATUS=unknown
 		return 0
@@ -572,4 +588,22 @@ qt_run_pairing() {
 	else
 		qt_exec_server "$_qt_bin" pairing "$_qt_sub"
 	fi
+}
+
+qt_open_plugin_pane() {
+	# Actions run without a TTY. Open the declared pane so pairing is visible.
+	_qt_entry=$1
+	case $_qt_entry in
+	setup | pair-qrcode) ;;
+	*)
+		qt_err 'unknown pane entrypoint'
+		return "$QT_USAGE"
+		;;
+	esac
+	_qt_plugin=$(qt_env_or_empty HERDR_PLUGIN_ID)
+	if [ -z "$_qt_plugin" ]; then
+		qt_err 'HERDR_PLUGIN_ID is required'
+		return "$QT_USAGE"
+	fi
+	qt_exec_server "$HERDR_BIN_PATH" plugin pane open --plugin "$_qt_plugin" --entrypoint "$_qt_entry"
 }

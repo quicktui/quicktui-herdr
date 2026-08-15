@@ -46,8 +46,10 @@ herdr plugin unlink ai.quicktui
 | Entry | When | Behavior |
 | --- | --- | --- |
 | `[[startup]]` | After Herdr restore / live handoff | Discover install + readiness, write local status, exit |
-| Setup action / pane | User invoked | Missing: install guide. Not ready: start-service guide. Ready + TTY: `pairing welcome` |
-| Pairing QR action | User invoked | Same discovery, then `pairing qrcode` only if the daemon is ready |
+| Setup action | User invoked | Opens the Setup popup pane (actions have no TTY) |
+| Setup pane | Pane TTY | Missing: install guide. Not ready: start-service guide. Ready: `pairing welcome` |
+| Pairing QR action | User invoked | Opens the Pairing QR popup pane |
+| Pairing QR pane | Pane TTY | Same discovery, then `pairing qrcode` only if the daemon is ready |
 
 Custom QuickTUI installs can set:
 

@@ -11,16 +11,16 @@ command = ["./scripts/startup.sh"]
 [[actions]]
 id = "setup"
 title = "QuickTUI Setup"
-description = "Check QuickTUI Server and open the official pairing welcome guide."
+description = "Open the QuickTUI setup pane and official pairing welcome guide."
 contexts = ["workspace", "global"]
-command = ["./scripts/setup.sh"]
+command = ["./scripts/open-pane.sh", "setup"]
 
 [[actions]]
 id = "pair-qrcode"
 title = "QuickTUI Pairing QR"
-description = "Show the official QuickTUI pairing QR code when the server is ready."
+description = "Open a pane with the official QuickTUI pairing QR code when the server is ready."
 contexts = ["workspace", "global"]
-command = ["./scripts/pair-qrcode.sh"]
+command = ["./scripts/open-pane.sh", "pair-qrcode"]
 
 [[panes]]
 id = "setup"
@@ -30,3 +30,12 @@ placement = "popup"
 width = "80%"
 height = 24
 command = ["./scripts/setup.sh"]
+
+[[panes]]
+id = "pair-qrcode"
+title = "QuickTUI Pairing QR"
+description = "Official QuickTUI pairing QR code."
+placement = "popup"
+width = "80%"
+height = 24
+command = ["./scripts/pair-qrcode.sh"]
