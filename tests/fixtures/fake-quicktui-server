@@ -1,0 +1,15 @@
+#!/bin/sh
+set -eu
+log=${FAKE_QT_LOG:-/dev/null}
+printf '%s\n' "$*" >>"$log"
+if [ "${1-}" = pairing ]; then
+	case ${2-} in
+	welcome | qrcode)
+		if [ "${FAKE_QT_ISSUE_CODE-}" = 1 ]; then
+			printf '%s\n' 'PAIRING_CODE=SECRET-PAIRING-CODE'
+		fi
+		exit "${FAKE_QT_EXIT:-0}"
+		;;
+	esac
+fi
+exit 1

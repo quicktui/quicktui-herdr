@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+log=${FAKE_HERDR_LOG:-/dev/null}
+printf '%s\n' "$*" >>"$log"
+if [ "${1-}" = session ] && [ "${2-}" = list ]; then
+	printf '%s\n' "${FAKE_HERDR_SESSION_JSON-{\"sessions\":[{\"name\":\"ok\"}]}}"
+	exit "${FAKE_HERDR_EXIT:-0}"
+fi
+exit "${FAKE_HERDR_EXIT:-0}"
