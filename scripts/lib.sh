@@ -90,10 +90,19 @@ qt_is_safe_host() {
 }
 
 qt_is_numeric_ip() {
+	# IPv4 needs four 0-255 octets. IPv6 must contain a colon.
+	# Hex labels such as deadbeef are hostnames, not addresses.
 	qt_awk_check "$1" 'BEGIN {
 		v = ENVIRON["QT_CHECK"]
-		if (v ~ /^[0-9]+(\.[0-9]+){3}$/) exit 0
-		if (v ~ /^[0-9A-Fa-f:]+$/) exit 0
+		if (v ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/) {
+			n = split(v, oct, ".")
+			if (n != 4) exit 1
+			for (i = 1; i <= 4; i++) {
+				if (length(oct[i]) > 3 || oct[i] + 0 > 255) exit 1
+			}
+			exit 0
+		}
+		if (index(v, ":") && v ~ /^[0-9A-Fa-f:]+$/) exit 0
 		exit 1
 	}'
 }
@@ -379,6 +388,7 @@ qt_probe_capability() {
 			return 2
 		fi
 		QT_PROBE_HOST=$_qt_host QT_PROBE_PORT=$_qt_port "$_qt_python" - <<'PY'
+import ipaddress
 import os
 import socket
 import sys
@@ -390,17 +400,23 @@ if not host or not port_raw.isdigit():
 port = int(port_raw)
 if port < 1 or port > 65535:
     sys.exit(1)
+try:
+    ip = ipaddress.ip_address(host)
+except ValueError:
+    sys.exit(2)
+family = socket.AF_INET6 if ip.version == 6 else socket.AF_INET
 request = (
     b"GET /.well-known/quicktui-server-capability HTTP/1.1\r\n"
     + "Host: {}:{}\r\n".format(host, port).encode("ascii", "strict")
     + b"Connection: close\r\n\r\n"
 )
 try:
-    sock = socket.create_connection((host, port), timeout=2)
+    sock = socket.socket(family, socket.SOCK_STREAM)
+    sock.settimeout(2)
+    sock.connect((host, port))
 except OSError:
     sys.exit(1)
 try:
-    sock.settimeout(2)
     sock.sendall(request)
     data = sock.recv(64)
 finally:
@@ -448,10 +464,7 @@ PY
 		fi
 		return 1
 	fi
-	if "$HERDR_BIN_PATH" session list --json >/dev/null 2>&1; then
-		QT_HERDR_CLI=ok
-		return 0
-	fi
+	# Session listing is best-effort. Without a bounded runner, skip it.
 	return 1
 }
 

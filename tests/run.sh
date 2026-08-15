@@ -442,6 +442,39 @@ assert_eq "hostname without curl exits 0" "$RC" 0
 assert_file_contains "hostname without curl is unknown" "$CASE/out" "status=unknown"
 cleanup_case
 
+new_case
+mkdir -p "$CASE/rbin"
+for t in python3 awk date mkdir dirname mv rm; do
+	ln -s "$(command -v "$t")" "$CASE/rbin/$t"
+done
+export PATH=$CASE/bin:$CASE/rbin
+export QUICKTUI_SERVER_BIN=$CASE/bin/quicktui-server
+export QUICKTUI_CONFIG=$CASE/hexhost.toml
+printf 'addr = "deadbeef:65531"\n' >"$QUICKTUI_CONFIG"
+run_startup
+export PATH=$CASE/bin:/usr/bin:/bin
+assert_eq "hex hostname without curl exits 0" "$RC" 0
+assert_file_contains "hex hostname is unknown not probed" "$CASE/out" "status=unknown"
+cleanup_case
+
+new_case
+mkdir -p "$CASE/rbin"
+for t in awk date mkdir dirname mv rm; do
+	ln -s "$(command -v "$t")" "$CASE/rbin/$t"
+done
+export QUICKTUI_SERVER_BIN=$CASE/bin/quicktui-server
+export QUICKTUI_CONFIG=$CASE/closed.toml
+printf 'addr = "127.0.0.1:65530"\n' >"$QUICKTUI_CONFIG"
+printf '%s\n' '#!/bin/sh' 'sleep 30' 'exit 0' >"$CASE/bin/herdr"
+chmod 0755 "$CASE/bin/herdr"
+export HERDR_BIN_PATH=$CASE/bin/herdr
+export PATH=$CASE/bin:$CASE/rbin
+run_startup
+export PATH=$CASE/bin:/usr/bin:/bin
+assert_eq "startup without python3 skips hanging herdr" "$RC" 0
+assert_file_contains "herdr skip stays unavailable" "$CASE/state/discovery.env" "herdr_cli=unavailable"
+cleanup_case
+
 # --- leftover children ---
 new_case
 export QUICKTUI_SERVER_BIN=$CASE/bin/quicktui-server
