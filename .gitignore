@@ -1,0 +1,5 @@
+/worktrees/
+/.memsearch/
+/target/
+*.swp
+.DS_Store
