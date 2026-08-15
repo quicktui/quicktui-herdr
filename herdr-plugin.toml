@@ -1,0 +1,32 @@
+id = "ai.quicktui"
+name = "QuickTUI"
+version = "0.1.0"
+min_herdr_version = "0.8.0"
+description = "Discover QuickTUI Server and open the official pairing flow from Herdr."
+platforms = ["linux", "macos"]
+
+[[startup]]
+command = ["./scripts/startup.sh"]
+
+[[actions]]
+id = "setup"
+title = "QuickTUI Setup"
+description = "Check QuickTUI Server and open the official pairing welcome guide."
+contexts = ["workspace", "global"]
+command = ["./scripts/setup.sh"]
+
+[[actions]]
+id = "pair-qrcode"
+title = "QuickTUI Pairing QR"
+description = "Show the official QuickTUI pairing QR code when the server is ready."
+contexts = ["workspace", "global"]
+command = ["./scripts/pair-qrcode.sh"]
+
+[[panes]]
+id = "setup"
+title = "QuickTUI Setup"
+description = "Interactive QuickTUI setup and pairing entry."
+placement = "popup"
+width = "80%"
+height = 24
+command = ["./scripts/setup.sh"]

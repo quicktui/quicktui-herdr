@@ -1,0 +1,575 @@
+# Shared POSIX helpers for quicktui-herdr. Source only. Do not execute.
+# All process launches use argv. Do not evaluate strings as a shell.
+
+QT_OK=0
+QT_USAGE=2
+QT_INVALID=3
+QT_NOT_READY=4
+QT_CLI_FAILED=5
+
+QT_PLUGIN_ID_EXPECTED=ai.quicktui
+QT_DEFAULT_LISTEN=0.0.0.0:8022
+QT_CAPABILITY_PATH=/.well-known/quicktui-server-capability
+QT_INSTALL_GLOBAL='curl -fsSL https://quicktui.ai/q.sh | sh'
+QT_INSTALL_CN='curl -fsSL https://dl.quicktui.cn/q.sh | sh'
+
+qt_log() {
+	printf 'quicktui-herdr: %s\n' "$1"
+}
+
+qt_err() {
+	printf 'quicktui-herdr: %s\n' "$1" >&2
+}
+
+qt_awk_check() {
+	# $1 env value, $2 awk program using ENVIRON["QT_CHECK"]
+	QT_CHECK=$1 awk "$2"
+}
+
+qt_has_control_chars() {
+	# POSIX character class so GNU awk and BSD awk agree.
+	qt_awk_check "$1" 'BEGIN {
+		v = ENVIRON["QT_CHECK"]
+		if (v ~ /[[:cntrl:]]/) exit 1
+		exit 0
+	}'
+}
+
+qt_is_safe_text() {
+	_qt_value=$1
+	_qt_max=$2
+	if [ -z "$_qt_value" ]; then
+		return 1
+	fi
+	if [ "${#_qt_value}" -gt "$_qt_max" ]; then
+		return 1
+	fi
+	qt_has_control_chars "$_qt_value"
+}
+
+qt_is_safe_path() {
+	qt_is_safe_text "$1" 4096
+}
+
+qt_is_abs_path() {
+	case $1 in
+	/*) return 0 ;;
+	*) return 1 ;;
+	esac
+}
+
+qt_is_executable_file() {
+	[ -f "$1" ] && [ -x "$1" ]
+}
+
+qt_is_safe_plugin_id() {
+	qt_awk_check "$1" 'BEGIN {
+		v = ENVIRON["QT_CHECK"]
+		if (v ~ /^[A-Za-z0-9._:-]+$/ && length(v) <= 120) exit 0
+		exit 1
+	}'
+}
+
+qt_is_digits() {
+	qt_awk_check "$1" 'BEGIN {
+		v = ENVIRON["QT_CHECK"]
+		if (v ~ /^[0-9]+$/) exit 0
+		exit 1
+	}'
+}
+
+qt_is_safe_host() {
+	qt_awk_check "$1" 'BEGIN {
+		v = ENVIRON["QT_CHECK"]
+		if (length(v) == 0 || length(v) > 253) exit 1
+		if (v == "localhost") exit 0
+		if (v ~ /^[0-9]+(\.[0-9]+){3}$/) exit 0
+		if (v ~ /^[0-9A-Fa-f:]+$/) exit 0
+		if (v ~ /^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])$/) exit 0
+		exit 1
+	}'
+}
+
+qt_env_or_empty() {
+	# Allowlisted env lookup. Do not take untrusted names.
+	case $1 in
+	HERDR_BIN_PATH) printf '%s' "${HERDR_BIN_PATH-}" ;;
+	HERDR_PLUGIN_ID) printf '%s' "${HERDR_PLUGIN_ID-}" ;;
+	HERDR_PLUGIN_ROOT) printf '%s' "${HERDR_PLUGIN_ROOT-}" ;;
+	HERDR_SOCKET_PATH) printf '%s' "${HERDR_SOCKET_PATH-}" ;;
+	HERDR_PLUGIN_STATE_DIR) printf '%s' "${HERDR_PLUGIN_STATE_DIR-}" ;;
+	HERDR_PLUGIN_CONFIG_DIR) printf '%s' "${HERDR_PLUGIN_CONFIG_DIR-}" ;;
+	QUICKTUI_SERVER_BIN) printf '%s' "${QUICKTUI_SERVER_BIN-}" ;;
+	QUICKTUI_CONFIG) printf '%s' "${QUICKTUI_CONFIG-}" ;;
+	HOME) printf '%s' "${HOME-}" ;;
+	*) return 1 ;;
+	esac
+}
+
+qt_require_herdr_runtime() {
+	QT_BIN=$(qt_env_or_empty HERDR_BIN_PATH)
+	if [ -z "$QT_BIN" ]; then
+		qt_err 'HERDR_BIN_PATH is required'
+		return "$QT_USAGE"
+	fi
+	if ! qt_is_safe_path "$QT_BIN" || ! qt_is_abs_path "$QT_BIN"; then
+		qt_err 'HERDR_BIN_PATH must be an absolute path without control characters'
+		return "$QT_USAGE"
+	fi
+	if ! qt_is_executable_file "$QT_BIN"; then
+		qt_err 'HERDR_BIN_PATH is not an executable file'
+		return "$QT_USAGE"
+	fi
+
+	QT_ID=$(qt_env_or_empty HERDR_PLUGIN_ID)
+	if [ -z "$QT_ID" ]; then
+		qt_err 'HERDR_PLUGIN_ID is required'
+		return "$QT_USAGE"
+	fi
+	if ! qt_is_safe_plugin_id "$QT_ID"; then
+		qt_err 'HERDR_PLUGIN_ID is invalid'
+		return "$QT_USAGE"
+	fi
+
+	QT_ROOT=$(qt_env_or_empty HERDR_PLUGIN_ROOT)
+	if [ -n "$QT_ROOT" ]; then
+		if ! qt_is_safe_path "$QT_ROOT" || ! qt_is_abs_path "$QT_ROOT"; then
+			qt_err 'HERDR_PLUGIN_ROOT must be an absolute path without control characters'
+			return "$QT_USAGE"
+		fi
+	fi
+
+	QT_SOCKET=$(qt_env_or_empty HERDR_SOCKET_PATH)
+	if [ -n "$QT_SOCKET" ]; then
+		if ! qt_is_safe_path "$QT_SOCKET"; then
+			qt_err 'HERDR_SOCKET_PATH contains control characters'
+			return "$QT_USAGE"
+		fi
+	fi
+
+	QT_STATE_DIR=$(qt_env_or_empty HERDR_PLUGIN_STATE_DIR)
+	if [ -n "$QT_STATE_DIR" ]; then
+		if ! qt_is_safe_path "$QT_STATE_DIR" || ! qt_is_abs_path "$QT_STATE_DIR"; then
+			qt_err 'HERDR_PLUGIN_STATE_DIR must be an absolute path without control characters'
+			return "$QT_USAGE"
+		fi
+	fi
+
+	QT_CONFIG_DIR=$(qt_env_or_empty HERDR_PLUGIN_CONFIG_DIR)
+	if [ -n "$QT_CONFIG_DIR" ]; then
+		if ! qt_is_safe_path "$QT_CONFIG_DIR" || ! qt_is_abs_path "$QT_CONFIG_DIR"; then
+			qt_err 'HERDR_PLUGIN_CONFIG_DIR must be an absolute path without control characters'
+			return "$QT_USAGE"
+		fi
+	fi
+
+	# Context JSON and workspace labels are untrusted. Never interpolate them.
+	return 0
+}
+
+qt_find_cmd() {
+	_qt_resolved=$(command -v "$1" 2>/dev/null) || return 1
+	if ! qt_is_safe_path "$_qt_resolved" || ! qt_is_abs_path "$_qt_resolved"; then
+		return 1
+	fi
+	if ! qt_is_executable_file "$_qt_resolved"; then
+		return 1
+	fi
+	printf '%s\n' "$_qt_resolved"
+}
+
+qt_home_dir() {
+	_qt_home=$(qt_env_or_empty HOME)
+	if [ -z "$_qt_home" ]; then
+		return 1
+	fi
+	if ! qt_is_safe_path "$_qt_home" || ! qt_is_abs_path "$_qt_home"; then
+		return 1
+	fi
+	printf '%s\n' "$_qt_home"
+}
+
+qt_default_config_path() {
+	_qt_home=$(qt_home_dir) || return 1
+	printf '%s\n' "$_qt_home/.config/quicktui-server-v2/config.toml"
+}
+
+qt_find_server_bin() {
+	_qt_override=$(qt_env_or_empty QUICKTUI_SERVER_BIN)
+	if [ -n "$_qt_override" ]; then
+		if ! qt_is_safe_path "$_qt_override" || ! qt_is_abs_path "$_qt_override"; then
+			qt_err 'QUICKTUI_SERVER_BIN must be an absolute path without control characters'
+			return "$QT_INVALID"
+		fi
+		if ! qt_is_executable_file "$_qt_override"; then
+			qt_err 'QUICKTUI_SERVER_BIN is not an executable file'
+			return "$QT_INVALID"
+		fi
+		printf '%s\n' "$_qt_override"
+		return 0
+	fi
+	if _qt_from_path=$(qt_find_cmd quicktui-server); then
+		printf '%s\n' "$_qt_from_path"
+		return 0
+	fi
+	_qt_home=$(qt_home_dir || true)
+	if [ -n "$_qt_home" ] && qt_is_executable_file "$_qt_home/.local/bin/quicktui-server"; then
+		printf '%s\n' "$_qt_home/.local/bin/quicktui-server"
+		return 0
+	fi
+	if qt_is_executable_file /usr/local/bin/quicktui-server; then
+		printf '%s\n' /usr/local/bin/quicktui-server
+		return 0
+	fi
+	return 1
+}
+
+qt_resolve_config_path() {
+	_qt_override=$(qt_env_or_empty QUICKTUI_CONFIG)
+	if [ -n "$_qt_override" ]; then
+		if ! qt_is_safe_path "$_qt_override" || ! qt_is_abs_path "$_qt_override"; then
+			qt_err 'QUICKTUI_CONFIG must be an absolute path without control characters'
+			return "$QT_INVALID"
+		fi
+		printf '%s\n' "$_qt_override"
+		return 0
+	fi
+	qt_default_config_path
+}
+
+qt_read_toml_addr() {
+	# Read a simple addr = "host:port" assignment. No interpolation or includes.
+	_qt_file=$1
+	if [ ! -f "$_qt_file" ] || [ ! -r "$_qt_file" ]; then
+		return 1
+	fi
+	awk '
+		BEGIN { found = 0 }
+		{
+			line = $0
+			sub(/[ \t]*#.*$/, "", line)
+			if (line !~ /^[ \t]*addr[ \t]*=[ \t]*/) next
+			sub(/^[ \t]*addr[ \t]*=[ \t]*/, "", line)
+			if (index(line, "\"\"\"") == 1) exit 2
+			if (line ~ /^"/) {
+				if (line !~ /^"[^"]*"[ \t]*$/) exit 2
+				gsub(/^"/, "", line)
+				gsub(/"[ \t]*$/, "", line)
+			} else if (line ~ /^'\''/) {
+				if (line !~ /^'\''[^'\'']*'\''[ \t]*$/) exit 2
+				gsub(/^'\''/, "", line)
+				gsub(/'\''[ \t]*$/, "", line)
+			} else {
+				gsub(/[ \t]*$/, "", line)
+			}
+			if (line == "" || line ~ /[[:cntrl:]]/) exit 2
+			print line
+			found = 1
+			exit 0
+		}
+		END { if (found == 0) exit 1 }
+	' "$_qt_file"
+}
+
+qt_split_listen_addr() {
+	_qt_addr=$1
+	if ! qt_is_safe_text "$_qt_addr" 253; then
+		return 1
+	fi
+	QT_PROBE_HOST=
+	QT_PROBE_PORT=
+	case $_qt_addr in
+	\[*\]:*)
+		QT_PROBE_PORT=${_qt_addr##*\]:}
+		QT_PROBE_HOST=${_qt_addr#\[}
+		QT_PROBE_HOST=${QT_PROBE_HOST%\]:*}
+		;;
+	*:*)
+		QT_PROBE_PORT=${_qt_addr##*:}
+		QT_PROBE_HOST=${_qt_addr%:*}
+		;;
+	*)
+		return 1
+		;;
+	esac
+	if ! qt_is_digits "$QT_PROBE_PORT"; then
+		return 1
+	fi
+	if [ "$QT_PROBE_PORT" -lt 1 ] || [ "$QT_PROBE_PORT" -gt 65535 ]; then
+		return 1
+	fi
+	if [ -z "$QT_PROBE_HOST" ] || [ "$QT_PROBE_HOST" = "0.0.0.0" ] || [ "$QT_PROBE_HOST" = "localhost" ]; then
+		QT_PROBE_HOST=127.0.0.1
+	fi
+	if [ "$QT_PROBE_HOST" = "::" ] || [ "$QT_PROBE_HOST" = "::0" ]; then
+		QT_PROBE_HOST=::1
+	fi
+	if ! qt_is_safe_host "$QT_PROBE_HOST"; then
+		return 1
+	fi
+	return 0
+}
+
+qt_http_probe_url() {
+	_qt_host=$1
+	_qt_port=$2
+	case $_qt_host in
+	*:*)
+		printf 'http://[%s]:%s%s' "$_qt_host" "$_qt_port" "$QT_CAPABILITY_PATH"
+		;;
+	*)
+		printf 'http://%s:%s%s' "$_qt_host" "$_qt_port" "$QT_CAPABILITY_PATH"
+		;;
+	esac
+}
+
+qt_probe_capability() {
+	_qt_host=$1
+	_qt_port=$2
+	_qt_url=$(qt_http_probe_url "$_qt_host" "$_qt_port")
+	_qt_curl=$(qt_find_cmd curl || true)
+	if [ -n "$_qt_curl" ]; then
+		"$_qt_curl" \
+			--silent \
+			--show-error \
+			--fail \
+			--output /dev/null \
+			--max-time 2 \
+			--connect-timeout 1 \
+			--max-redirs 0 \
+			--proto '=http' \
+			--noproxy '*' \
+			--url "$_qt_url" >/dev/null 2>&1
+		return $?
+	fi
+	_qt_python=$(qt_find_cmd python3 || true)
+	if [ -n "$_qt_python" ]; then
+		QT_PROBE_HOST=$_qt_host QT_PROBE_PORT=$_qt_port "$_qt_python" - <<'PY'
+import os
+import socket
+import sys
+
+host = os.environ.get("QT_PROBE_HOST", "")
+port_raw = os.environ.get("QT_PROBE_PORT", "")
+if not host or not port_raw.isdigit():
+    sys.exit(1)
+port = int(port_raw)
+if port < 1 or port > 65535:
+    sys.exit(1)
+request = (
+    b"GET /.well-known/quicktui-server-capability HTTP/1.1\r\n"
+    + "Host: {}:{}\r\n".format(host, port).encode("ascii", "strict")
+    + b"Connection: close\r\n\r\n"
+)
+try:
+    sock = socket.create_connection((host, port), timeout=2)
+except OSError:
+    sys.exit(1)
+try:
+    sock.settimeout(2)
+    sock.sendall(request)
+    data = sock.recv(64)
+finally:
+    sock.close()
+if data.startswith(b"HTTP/1.1 200") or data.startswith(b"HTTP/1.0 200"):
+    sys.exit(0)
+sys.exit(1)
+PY
+		return $?
+	fi
+	return 2
+}
+
+qt_herdr_session_probe() {
+	# Use the official CLI plus injected HERDR_SOCKET_PATH. Do not invent sockets.
+	QT_HERDR_CLI=unavailable
+	if [ -z "${HERDR_BIN_PATH-}" ]; then
+		return 1
+	fi
+	if "$HERDR_BIN_PATH" session list --json >/dev/null 2>&1; then
+		QT_HERDR_CLI=ok
+		return 0
+	fi
+	return 1
+}
+
+qt_now_utc() {
+	date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || printf 'unknown\n'
+}
+
+qt_write_state() {
+	_qt_status=$1
+	_qt_server_present=$2
+	_qt_config_present=$3
+	_qt_herdr_cli=$4
+	case $_qt_status in
+	missing | not_running | ready | unknown | invalid_config | invalid_bin) ;;
+	*)
+		_qt_status=unknown
+		;;
+	esac
+	_qt_dir=$(qt_env_or_empty HERDR_PLUGIN_STATE_DIR)
+	if [ -z "$_qt_dir" ]; then
+		return 0
+	fi
+	if [ ! -d "$_qt_dir" ]; then
+		umask 077
+		mkdir -p "$_qt_dir" || return 0
+	fi
+	_qt_tmp=$_qt_dir/discovery.env.tmp.$$
+	_qt_dest=$_qt_dir/discovery.env
+	umask 077
+	# Local status only. No paths, codes, tokens, or identity.
+	if printf 'status=%s\nserver_present=%s\nconfig_present=%s\nherdr_cli=%s\nprobed_at=%s\n' \
+		"$_qt_status" "$_qt_server_present" "$_qt_config_present" "$_qt_herdr_cli" "$(qt_now_utc)" \
+		>"$_qt_tmp"; then
+		mv "$_qt_tmp" "$_qt_dest" || rm -f "$_qt_tmp"
+	else
+		rm -f "$_qt_tmp"
+	fi
+}
+
+qt_print_install_guide() {
+	cat <<EOF
+QuickTUI Server is not installed on this machine.
+
+This plugin is only a Herdr entry point. It does not download or run the
+installer, and it does not start a second server.
+
+Official install (run it yourself if you want QuickTUI):
+
+  Global: $QT_INSTALL_GLOBAL
+  China:  $QT_INSTALL_CN
+
+Docs: https://quicktui.ai/install/
+EOF
+}
+
+qt_print_start_guide() {
+	cat <<EOF
+QuickTUI Server is installed but not ready for pairing.
+
+Start the existing service, then retry QuickTUI Setup. This plugin will not
+launch an unsupervised daemon.
+
+  macOS: launchctl print gui/\$(id -u)/ai.quicktui
+  Linux: systemctl --user status quicktui
+
+If you use a custom config, start the server with that file and set
+QUICKTUI_CONFIG to the same path before invoking this plugin.
+EOF
+}
+
+qt_print_headless_ready_guide() {
+	_qt_bin=$1
+	_qt_config=$2
+	printf '%s\n' 'QuickTUI Server is ready. stdin is not a TTY, so this plugin will not issue a pairing code.'
+	printf '%s\n' 'Run one of these commands in an interactive terminal:'
+	printf '\n'
+	if [ -n "$_qt_config" ]; then
+		printf '  %s pairing welcome --config %s\n' "$_qt_bin" "$_qt_config"
+		printf '  %s pairing qrcode --config %s\n' "$_qt_bin" "$_qt_config"
+	else
+		printf '  %s pairing welcome\n' "$_qt_bin"
+		printf '  %s pairing qrcode\n' "$_qt_bin"
+	fi
+}
+
+qt_discover() {
+	# Sets QT_STATUS, QT_SERVER_BIN, QT_CONFIG_PATH, QT_SERVER_PRESENT,
+	# QT_CONFIG_PRESENT, QT_HERDR_CLI. Safe to re-run.
+	QT_STATUS=missing
+	QT_SERVER_BIN=
+	QT_CONFIG_PATH=
+	QT_SERVER_PRESENT=0
+	QT_CONFIG_PRESENT=0
+	QT_HERDR_CLI=unavailable
+
+	qt_herdr_session_probe || true
+
+	if ! QT_SERVER_BIN=$(qt_find_server_bin); then
+		_qt_find_rc=$?
+		if [ "$_qt_find_rc" -eq "$QT_INVALID" ]; then
+			QT_STATUS=invalid_bin
+			return 0
+		fi
+		QT_STATUS=missing
+		if QT_CONFIG_PATH=$(qt_resolve_config_path); then
+			if [ -f "$QT_CONFIG_PATH" ]; then
+				QT_CONFIG_PRESENT=1
+			fi
+		else
+			QT_CONFIG_PATH=
+		fi
+		return 0
+	fi
+	QT_SERVER_PRESENT=1
+
+	if ! QT_CONFIG_PATH=$(qt_resolve_config_path); then
+		_qt_cfg_rc=$?
+		if [ "$_qt_cfg_rc" -eq "$QT_INVALID" ]; then
+			QT_STATUS=invalid_config
+			return 0
+		fi
+		QT_CONFIG_PATH=
+	fi
+
+	_qt_listen=$QT_DEFAULT_LISTEN
+	if [ -n "$QT_CONFIG_PATH" ] && [ -f "$QT_CONFIG_PATH" ]; then
+		QT_CONFIG_PRESENT=1
+		if ! _qt_addr=$(qt_read_toml_addr "$QT_CONFIG_PATH"); then
+			_qt_addr_rc=$?
+			if [ "$_qt_addr_rc" -eq 2 ]; then
+				QT_STATUS=invalid_config
+				return 0
+			fi
+		else
+			_qt_listen=$_qt_addr
+		fi
+	fi
+
+	if ! qt_split_listen_addr "$_qt_listen"; then
+		QT_STATUS=invalid_config
+		return 0
+	fi
+
+	if qt_probe_capability "$QT_PROBE_HOST" "$QT_PROBE_PORT"; then
+		QT_STATUS=ready
+		return 0
+	fi
+	_qt_probe_rc=$?
+	if [ "$_qt_probe_rc" -eq 2 ]; then
+		QT_STATUS=unknown
+		return 0
+	fi
+	QT_STATUS=not_running
+	return 0
+}
+
+qt_finish_discovery() {
+	qt_write_state "$QT_STATUS" "$QT_SERVER_PRESENT" "$QT_CONFIG_PRESENT" "$QT_HERDR_CLI"
+	qt_log "status=$QT_STATUS"
+}
+
+qt_exec_server() {
+	_qt_bin=$1
+	shift
+	exec "$_qt_bin" "$@"
+}
+
+qt_stdin_is_tty() {
+	[ -t 0 ]
+}
+
+qt_run_pairing() {
+	# $1 server bin, $2 subcommand (welcome|qrcode), $3 optional config path
+	_qt_bin=$1
+	_qt_sub=$2
+	_qt_config=$3
+	_qt_override=$(qt_env_or_empty QUICKTUI_CONFIG)
+	if [ -n "$_qt_override" ] || { [ -n "$_qt_config" ] && [ -f "$_qt_config" ]; }; then
+		qt_exec_server "$_qt_bin" pairing "$_qt_sub" --config "$_qt_config"
+	else
+		qt_exec_server "$_qt_bin" pairing "$_qt_sub"
+	fi
+}
