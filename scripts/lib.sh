@@ -89,6 +89,24 @@ qt_is_safe_host() {
 	}'
 }
 
+qt_is_numeric_ip() {
+	qt_awk_check "$1" 'BEGIN {
+		v = ENVIRON["QT_CHECK"]
+		if (v ~ /^[0-9]+(\.[0-9]+){3}$/) exit 0
+		if (v ~ /^[0-9A-Fa-f:]+$/) exit 0
+		exit 1
+	}'
+}
+
+qt_shell_quote() {
+	# POSIX single-quote encoding for copy/paste commands.
+	QT_CHECK=$1 awk 'BEGIN {
+		v = ENVIRON["QT_CHECK"]
+		gsub(/\047/, "\047\\\047\047", v)
+		printf "\047%s\047", v
+	}'
+}
+
 qt_env_or_empty() {
 	# Allowlisted env lookup. Do not take untrusted names.
 	case $1 in
@@ -356,6 +374,10 @@ qt_probe_capability() {
 	fi
 	_qt_python=$(qt_find_cmd python3 || true)
 	if [ -n "$_qt_python" ]; then
+		if ! qt_is_numeric_ip "$_qt_host"; then
+			# Avoid unbounded DNS in the curl-less fallback.
+			return 2
+		fi
 		QT_PROBE_HOST=$_qt_host QT_PROBE_PORT=$_qt_port "$_qt_python" - <<'PY'
 import os
 import socket
@@ -396,6 +418,34 @@ qt_herdr_session_probe() {
 	# Use the official CLI plus injected HERDR_SOCKET_PATH. Do not invent sockets.
 	QT_HERDR_CLI=unavailable
 	if [ -z "${HERDR_BIN_PATH-}" ]; then
+		return 1
+	fi
+	_qt_python=$(qt_find_cmd python3 || true)
+	if [ -n "$_qt_python" ]; then
+		if HERDR_BIN_PATH=$HERDR_BIN_PATH "$_qt_python" - <<'PY'
+import os
+import subprocess
+import sys
+
+cmd = os.environ.get("HERDR_BIN_PATH", "")
+if not cmd:
+    sys.exit(1)
+try:
+    result = subprocess.run(
+        [cmd, "session", "list", "--json"],
+        timeout=2,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+except (OSError, subprocess.TimeoutExpired):
+    sys.exit(1)
+sys.exit(0 if result.returncode == 0 else 1)
+PY
+		then
+			QT_HERDR_CLI=ok
+			return 0
+		fi
 		return 1
 	fi
 	if "$HERDR_BIN_PATH" session list --json >/dev/null 2>&1; then
@@ -475,15 +525,17 @@ EOF
 qt_print_headless_ready_guide() {
 	_qt_bin=$1
 	_qt_config=$2
+	_qt_bin_q=$(qt_shell_quote "$_qt_bin")
 	printf '%s\n' 'QuickTUI Server is ready. stdin is not a TTY, so this plugin will not issue a pairing code.'
 	printf '%s\n' 'Run one of these commands in an interactive terminal:'
 	printf '\n'
 	if [ -n "$_qt_config" ]; then
-		printf '  %s pairing welcome --config %s\n' "$_qt_bin" "$_qt_config"
-		printf '  %s pairing qrcode --config %s\n' "$_qt_bin" "$_qt_config"
+		_qt_config_q=$(qt_shell_quote "$_qt_config")
+		printf '  %s pairing welcome --config %s\n' "$_qt_bin_q" "$_qt_config_q"
+		printf '  %s pairing qrcode --config %s\n' "$_qt_bin_q" "$_qt_config_q"
 	else
-		printf '  %s pairing welcome\n' "$_qt_bin"
-		printf '  %s pairing qrcode\n' "$_qt_bin"
+		printf '  %s pairing welcome\n' "$_qt_bin_q"
+		printf '  %s pairing qrcode\n' "$_qt_bin_q"
 	fi
 }
 

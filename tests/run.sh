@@ -278,6 +278,7 @@ run_setup </dev/null
 assert_eq "headless setup ready exits 0" "$RC" 0
 assert_file_not_contains "headless setup does not exec pairing" "$CASE/qt.log" "pairing"
 assert_file_contains "headless setup prints manual commands" "$CASE/out" "pairing welcome"
+assert_file_contains "headless quotes spaced config" "$CASE/out" "'$QUICKTUI_CONFIG'"
 # pairing qrcode when ready
 : >"$CASE/qt.log"
 run_qr </dev/null
@@ -419,6 +420,26 @@ RC=$?
 set -e
 assert_eq "open-pane rejects unknown entrypoint" "$RC" 2
 assert_file_not_contains "unknown entrypoint is not passed through" "$CASE/herdr.log" "touch-pwned"
+cleanup_case
+
+# --- hostname without curl stays bounded ---
+new_case
+mkdir -p "$CASE/rbin"
+ln -s "$(command -v python3)" "$CASE/rbin/python3"
+ln -s "$(command -v awk)" "$CASE/rbin/awk"
+ln -s "$(command -v date)" "$CASE/rbin/date"
+ln -s "$(command -v mkdir)" "$CASE/rbin/mkdir"
+ln -s "$(command -v dirname)" "$CASE/rbin/dirname"
+ln -s "$(command -v mv)" "$CASE/rbin/mv"
+ln -s "$(command -v rm)" "$CASE/rbin/rm"
+export PATH=$CASE/bin:$CASE/rbin
+export QUICKTUI_SERVER_BIN=$CASE/bin/quicktui-server
+export QUICKTUI_CONFIG=$CASE/host.toml
+printf 'addr = "stuck.example:65531"\n' >"$QUICKTUI_CONFIG"
+run_startup
+export PATH=$CASE/bin:/usr/bin:/bin
+assert_eq "hostname without curl exits 0" "$RC" 0
+assert_file_contains "hostname without curl is unknown" "$CASE/out" "status=unknown"
 cleanup_case
 
 # --- leftover children ---
