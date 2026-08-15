@@ -84,6 +84,7 @@ qt_is_safe_host() {
 		if (v == "localhost") exit 0
 		if (v ~ /^[0-9]+(\.[0-9]+){3}$/) exit 0
 		if (v ~ /^[0-9A-Fa-f:]+$/) exit 0
+		if (index(v, ":") && v ~ /^[0-9A-Fa-f:.]+$/) exit 0
 		if (v ~ /^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])$/) exit 0
 		exit 1
 	}'
@@ -102,7 +103,7 @@ qt_is_numeric_ip() {
 			}
 			exit 0
 		}
-		if (index(v, ":") && v ~ /^[0-9A-Fa-f:]+$/) exit 0
+		if (index(v, ":") && v ~ /^[0-9A-Fa-f:.]+$/) exit 0
 		exit 1
 	}'
 }
@@ -405,9 +406,10 @@ try:
 except ValueError:
     sys.exit(2)
 family = socket.AF_INET6 if ip.version == 6 else socket.AF_INET
+host_header = "[{}]:{}".format(host, port) if ip.version == 6 else "{}:{}".format(host, port)
 request = (
     b"GET /.well-known/quicktui-server-capability HTTP/1.1\r\n"
-    + "Host: {}:{}\r\n".format(host, port).encode("ascii", "strict")
+    + "Host: {}\r\n".format(host_header).encode("ascii", "strict")
     + b"Connection: close\r\n\r\n"
 )
 try:

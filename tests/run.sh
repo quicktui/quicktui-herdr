@@ -458,6 +458,15 @@ assert_file_contains "hex hostname is unknown not probed" "$CASE/out" "status=un
 cleanup_case
 
 new_case
+export QUICKTUI_SERVER_BIN=$CASE/bin/quicktui-server
+export QUICKTUI_CONFIG=$CASE/mapped.toml
+printf 'addr = "[::ffff:127.0.0.1]:65531"\n' >"$QUICKTUI_CONFIG"
+run_startup
+assert_eq "mapped IPv6 config exits 0" "$RC" 0
+assert_file_not_contains "mapped IPv6 is not invalid_config" "$CASE/out" "status=invalid_config"
+cleanup_case
+
+new_case
 mkdir -p "$CASE/rbin"
 for t in awk date mkdir dirname mv rm; do
 	ln -s "$(command -v "$t")" "$CASE/rbin/$t"
