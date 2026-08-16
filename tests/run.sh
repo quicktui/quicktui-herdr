@@ -6,6 +6,8 @@ ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 FIXTURES=$ROOT/tests/fixtures
 FAILED=0
 RAN=0
+QT_CAP_PID=
+CASE=
 
 pass() {
 	RAN=$((RAN + 1))
@@ -118,10 +120,23 @@ new_case() {
 
 cleanup_case() {
 	stop_capability
-	if [ -n "${CASE-}" ] && [ -d "$CASE" ]; then
+	if [ -n "$CASE" ] && [ -d "$CASE" ]; then
 		rm -rf "$CASE"
 	fi
+	CASE=
 }
+
+handle_signal() {
+	_status=$1
+	trap - HUP INT TERM
+	cleanup_case
+	exit "$_status"
+}
+
+trap cleanup_case EXIT
+trap 'handle_signal 129' HUP
+trap 'handle_signal 130' INT
+trap 'handle_signal 143' TERM
 
 run_startup() {
 	set +e
