@@ -1,6 +1,6 @@
 id = "ai.quicktui"
 name = "QuickTUI"
-version = "0.1.0"
+version = "server2-20261002-01"
 min_herdr_version = "0.8.0"
 description = "Discover QuickTUI Server and open the official pairing flow from Herdr."
 platforms = ["linux", "macos"]
