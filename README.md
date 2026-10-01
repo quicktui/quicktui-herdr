@@ -81,7 +81,9 @@ QuickTUI Install (and Setup, when QuickTUI is missing) shows the official URL
 and waits for you to type `y` or `yes`. Only then does it:
 
 1. Download `https://quicktui.ai/q.sh` over HTTPS into a private temporary
-   directory, ignoring `~/.curlrc`
+   directory, ignoring `~/.curlrc`. The directory is created under `TMPDIR`
+   only when no other user can rename entries in it or its parents; otherwise
+   under `/tmp`
 2. Run it as your user with `sh <file>` (the same installer as
    `curl -fsSL https://quicktui.ai/q.sh | sh`)
 3. Delete the temporary file and directory

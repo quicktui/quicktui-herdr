@@ -29,13 +29,55 @@ qt_install_on_signal() {
 	exit "$_qt_status"
 }
 
+qt_is_safe_dir_entry() {
+	# $1 directory. Safe when no other user can rename or replace entries in
+	# it: owned by the current user or root, and either not group/other
+	# writable or sticky.
+	_qt_ls=$(ls -ldn "$1" 2>/dev/null) || return 1
+	QT_LS=$_qt_ls QT_UID=$(id -u) awk 'BEGIN {
+		split(ENVIRON["QT_LS"], f, " ")
+		mode = f[1]
+		uid = f[3]
+		if (substr(mode, 1, 1) != "d") exit 1
+		if (uid != ENVIRON["QT_UID"] && uid != "0") exit 1
+		group_w = substr(mode, 6, 1) == "w"
+		other_w = substr(mode, 9, 1) == "w"
+		sticky = substr(mode, 10, 1) ~ /[tT]/
+		if ((group_w || other_w) && !sticky) exit 1
+		exit 0
+	}'
+}
+
+qt_is_safe_tmp_parent() {
+	# $1 canonical absolute directory. Every component up to / must be safe,
+	# or another user could rename a whole directory between download and run.
+	_qt_walk=$1
+	while :; do
+		qt_is_safe_dir_entry "$_qt_walk" || return 1
+		if [ "$_qt_walk" = / ]; then
+			return 0
+		fi
+		_qt_walk=$(dirname -- "$_qt_walk")
+	done
+}
+
+qt_canonical_dir() {
+	(CDPATH= cd -P -- "$1" 2>/dev/null && pwd -P)
+}
+
 qt_install_tmp_dir() {
-	_qt_tmp_dir=${TMPDIR-}
-	if [ -n "$_qt_tmp_dir" ] && qt_is_safe_path "$_qt_tmp_dir" && qt_is_abs_path "$_qt_tmp_dir" && [ -d "$_qt_tmp_dir" ]; then
-		printf '%s\n' "${_qt_tmp_dir%/}"
-		return 0
-	fi
-	printf '%s\n' /tmp
+	# TMPDIR when it and its ancestors are safe, else /tmp under the same rule.
+	for _qt_candidate in "${TMPDIR-}" /tmp; do
+		if [ -z "$_qt_candidate" ] || ! qt_is_safe_path "$_qt_candidate" || ! qt_is_abs_path "$_qt_candidate"; then
+			continue
+		fi
+		_qt_canonical=$(qt_canonical_dir "$_qt_candidate") || continue
+		if qt_is_safe_path "$_qt_canonical" && qt_is_safe_tmp_parent "$_qt_canonical"; then
+			printf '%s\n' "$_qt_canonical"
+			return 0
+		fi
+	done
+	return 1
 }
 
 qt_print_install_prompt() {
@@ -135,10 +177,13 @@ qt_run_install_flow() {
 	trap 'qt_install_on_signal 129' HUP
 	trap 'qt_install_on_signal 130' INT
 	trap 'qt_install_on_signal 143' TERM
-	_qt_dir=$(qt_install_tmp_dir)
-	# A private 0700 directory: other users cannot replace or symlink the
-	# payload between download and execution, even when TMPDIR is shared and
-	# not sticky.
+	_qt_dir=$(qt_install_tmp_dir) || {
+		trap - HUP INT TERM EXIT
+		qt_err 'no safe temporary directory: TMPDIR and /tmp are writable by other users'
+		return "$QT_DOWNLOAD_FAILED"
+	}
+	# A private 0700 directory under a parent chain no other user can rename
+	# into: the payload cannot be replaced between download and execution.
 	QT_INSTALL_DIR=$(mktemp -d "$_qt_dir/quicktui-install.XXXXXX") || {
 		QT_INSTALL_DIR=
 		qt_install_cleanup

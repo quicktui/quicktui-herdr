@@ -10,6 +10,8 @@ new_install_case() {
 	export FAKE_CURL_LOG=$CASE/curl.log
 	export FAKE_CURL_PAYLOAD=$FIXTURES/fake-q.sh
 	export FAKE_INSTALLER_LOG=$CASE/installer.log
+	# User umask may leave group write on; a private TMPDIR must not have it.
+	chmod 0700 "$CASE/tmp"
 	export TMPDIR=$CASE/tmp
 	: >"$FAKE_CURL_LOG"
 	: >"$FAKE_INSTALLER_LOG"
@@ -116,6 +118,51 @@ assert_file_contains "installer keeps the pane TTY" "$CASE/installer.log" "stdin
 assert_file_contains "ready after install execs pairing welcome" "$CASE/qt.log" "pairing welcome --config $QUICKTUI_CONFIG"
 assert_file_contains "ready after install updates state" "$CASE/state/discovery.env" "status=ready"
 stop_capability
+cleanup_case
+
+# --- TMPDIR that other users can rename into falls back to /tmp ---
+for _layout in shared-dir shared-parent; do
+	new_install_case
+	mkdir -p "$CASE/shared/mine"
+	chmod 0777 "$CASE/shared"
+	chmod 0700 "$CASE/shared/mine"
+	case $_layout in
+	shared-dir) export TMPDIR=$CASE/shared ;;
+	shared-parent) export TMPDIR=$CASE/shared/mine ;;
+	esac
+	# Fail the fake installer so the case skips the 10 second ready wait.
+	export FAKE_INSTALLER_EXIT=9
+	run_in_pty y install.sh
+	assert_eq "install with $_layout TMPDIR runs the installer" "$RC" 7
+	_argv0=$(installer_argv0)
+	case $_argv0 in
+	/tmp/quicktui-install.*/q.sh) pass "install with $_layout TMPDIR uses /tmp" ;;
+	*) fail "install with $_layout TMPDIR uses /tmp (argv0=$_argv0)" ;;
+	esac
+	if [ -n "$_argv0" ] && [ ! -e "$(dirname "$_argv0")" ]; then
+		pass "install with $_layout TMPDIR removes the /tmp payload dir"
+	else
+		fail "install with $_layout TMPDIR removes the /tmp payload dir"
+	fi
+	if [ -z "$(find "$CASE/shared" -mindepth 1 ! -path "$CASE/shared/mine" -print)" ]; then
+		pass "install with $_layout TMPDIR writes nothing there"
+	else
+		fail "install with $_layout TMPDIR writes nothing there"
+	fi
+	cleanup_case
+done
+
+new_install_case
+mkdir -p "$CASE/sticky"
+chmod 1777 "$CASE/sticky"
+export TMPDIR=$CASE/sticky
+export FAKE_INSTALLER_EXIT=9
+run_in_pty y install.sh
+assert_eq "install with sticky shared TMPDIR runs the installer" "$RC" 7
+case $(installer_argv0) in
+"$CASE/sticky/quicktui-install."*/q.sh) pass "install keeps a sticky shared TMPDIR" ;;
+*) fail "install keeps a sticky shared TMPDIR ($(installer_argv0))" ;;
+esac
 cleanup_case
 
 # --- Setup with QuickTUI missing enters the same flow ---
