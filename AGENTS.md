@@ -16,8 +16,11 @@ GitHub publishing. Do not invent a remote or treat Marketplace listing as done.
 
 - POSIX `sh` only in `scripts/`
 - Commands use argv. Do not use `eval`, `sh -c`, or string shell concatenation
-- Do not download or execute remote installers
-- Do not start `quicktui-server` or any other unsupervised daemon
+- Run the official QuickTUI installer only after the user confirms each time
+  on a TTY. Download it to a private temp file and run it with argv
+  (`sh <file>`); never pipe it into a shell. Delete the file afterwards
+- The plugin itself starts no daemon. After the user confirms, the official
+  installer may install and start the QuickTUI service through its own flow
 - Do not save pairing codes, tokens, or identity material
 
 ## Verification

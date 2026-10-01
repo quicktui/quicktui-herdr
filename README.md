@@ -1,90 +1,128 @@
-# quicktui-herdr
+# QuickTUI for Herdr
 
-Herdr plugin that discovers QuickTUI Server and opens the official pairing
-flow. It is an ecosystem entry point, not a second QuickTUI server.
+**Use your Herdr sessions from your iPhone or Android phone.** This plugin
+installs [QuickTUI](https://quicktui.ai/?ref=herdr) with one confirmed step and
+pairs your phone with a QR code, right inside Herdr.
+
+<!-- Screenshot / GIF placeholder: Herdr popup with the QuickTUI pairing QR code. -->
+
+## Why QuickTUI
+
+- **Native mobile apps**: real iOS and Android clients, not a web terminal in a
+  browser tab
+- **Pair in seconds**: scan a QR code from the QuickTUI Pairing QR pane
+- **Reach your machine from anywhere**: the optional QuickTUI Relay is end-to-end
+  encrypted and needs no Tailscale, VPN, or port forwarding
+- **Built for agents**: run Claude Code, Codex, or any CLI agent in Herdr and
+  check on it from your phone
+
+Get the app:
+
+- iPhone / iPad: [App Store](https://apps.apple.com/app/quicktui/id6761338192)
+- Android: Google Play <!-- link placeholder until the listing is public -->
 
 Supported hosts: macOS and Linux. Minimum Herdr version: **0.8.0**.
 
-## What this plugin does
-
-- Runs a bounded, idempotent health check from Herdr `[[startup]]` and exits
-- Shows a Setup action / popup when you want to pair a device
-- Reuses `quicktui-server pairing welcome` and `pairing qrcode`
-- Uses Herdr-injected `HERDR_BIN_PATH` and `HERDR_SOCKET_PATH`
-- Prints official install instructions when QuickTUI is missing
-
-## What it does not do
-
-- It does not download or execute `q.sh` or any other remote installer
-- It does not start `quicktui-server` or any unsupervised daemon
-- It does not save pairing codes, tokens, or identity material
-- It does not take over a Herdr controller
-- It does not support Windows
-
-QuickTUI Server remains the only long-running service.
-
-## Install (local link)
-
-This repository is currently local-only. Publishing to GitHub / Marketplace
-is documented in [docs/publish.md](docs/publish.md) and is not authorized yet.
+## Install the plugin
 
 ```sh
-herdr plugin link /absolute/path/to/quicktui-herdr
-herdr plugin list --plugin ai.quicktui
-herdr plugin action invoke ai.quicktui.setup
-herdr plugin pane open --plugin ai.quicktui --entrypoint setup
+herdr plugin install quicktui/quicktui-herdr
 ```
 
-Unlink leaves the files in place:
+On first start, Herdr shows a one-time QuickTUI toast that points you to the
+next step.
 
-```sh
-herdr plugin unlink ai.quicktui
-```
+## Use it
 
-## Usage
-
-| Entry | When | Behavior |
+| Entry | ID | What it does |
 | --- | --- | --- |
-| `[[startup]]` | After Herdr restore / live handoff | Discover install + readiness, write local status, exit |
-| Setup action | User invoked | Opens the Setup popup pane (actions have no TTY) |
-| Setup pane | Pane TTY | Missing: install guide. Not ready: start-service guide. Ready: `pairing welcome` |
-| Pairing QR action | User invoked | Opens the Pairing QR popup pane |
-| Pairing QR pane | Pane TTY | Same discovery, then `pairing qrcode` only if the daemon is ready |
+| QuickTUI Install | `ai.quicktui.install` | Asks for confirmation, then runs the official QuickTUI installer and opens pairing |
+| QuickTUI Setup | `ai.quicktui.setup` | Missing: same confirmed install. Not running: start guide. Ready: `pairing welcome` |
+| QuickTUI Pairing QR | `ai.quicktui.pair-qrcode` | Shows the official pairing QR code when QuickTUI Server is ready |
+| Startup hook | `[[startup]]` | Bounded health check after Herdr starts, plus the one-time toast; then exits |
 
-Custom QuickTUI installs can set:
+Windows entries are documented separately once Windows support lands.
+
+Run an entry from the command line:
+
+```sh
+herdr plugin action invoke ai.quicktui.install
+herdr plugin action invoke ai.quicktui.setup
+herdr plugin action invoke ai.quicktui.pair-qrcode
+```
+
+Or bind keys in your Herdr config:
+
+```toml
+[[keys.command]]
+key = "prefix+q"
+type = "plugin_action"
+command = "ai.quicktui.pair-qrcode"
+description = "QuickTUI pairing QR"
+
+[[keys.command]]
+key = "prefix+i"
+type = "plugin_action"
+command = "ai.quicktui.install"
+description = "Install QuickTUI"
+```
+
+## What the install step runs
+
+QuickTUI Install (and Setup, when QuickTUI is missing) shows the official URL
+and waits for you to type `y` or `yes`. Only then does it:
+
+1. Download `https://quicktui.ai/q.sh` over HTTPS to a private temporary file
+2. Run it as your user with `sh <file>` (the same installer as
+   `curl -fsSL https://quicktui.ai/q.sh | sh`)
+3. Delete the temporary file
+4. Wait up to 10 seconds for QuickTUI Server, then open `pairing welcome`
+
+Any other answer, or a pane without a TTY, downloads nothing. A failed download
+or installer stops with an error and is not retried. The official installer
+sets up `quicktui-server` and its user service; the plugin itself never starts
+a daemon.
+
+You can also install QuickTUI yourself:
+
+```sh
+curl -fsSL https://quicktui.ai/q.sh | sh
+```
+
+See [quicktui.ai/install](https://quicktui.ai/install/?ref=herdr).
+
+## What the plugin does not do
+
+- It does not download or run anything without your confirmation
+- It does not start `quicktui-server` or any other daemon itself
+- It does not save pairing codes, tokens, or identity material. Its state
+  directory holds only a discovery status file and the time the toast was shown
+- It does not take over a Herdr controller
+
+## Custom QuickTUI installs
 
 - `QUICKTUI_SERVER_BIN`: absolute `quicktui-server` path
 - `QUICKTUI_CONFIG`: absolute `config.toml` path
 
-Default discovery uses `$PATH`, `~/.local/bin/quicktui-server`, and
+Default discovery uses `$PATH`, `~/.local/bin/quicktui-server`,
+`/usr/local/bin/quicktui-server`, and
 `~/.config/quicktui-server-v2/config.toml`.
 
-## Official QuickTUI install
+## Versioning
 
-The plugin never runs these commands. If QuickTUI is not installed, run one
-yourself:
-
-```sh
-# Global
-curl -fsSL https://quicktui.ai/q.sh | sh
-
-# China
-curl -fsSL https://dl.quicktui.cn/q.sh | sh
-```
+The plugin version matches the QuickTUI stable server release it was tested
+with (for example `server2-20260929-02`).
 
 ## Development
 
 ```sh
+herdr plugin link /absolute/path/to/quicktui-herdr
 sh tests/run.sh
-```
-
-Optional smoke against a real Herdr v0.8.0 binary:
-
-```sh
 HERDR_BIN=/path/to/herdr sh tests/smoke-herdr-link.sh
 ```
 
 Scripts are POSIX `sh`. Commands use argv. There is no `eval`.
+Publishing steps are in [docs/publish.md](docs/publish.md).
 
 ## License
 

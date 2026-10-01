@@ -1,34 +1,81 @@
 # Publishing quicktui-herdr
 
-This file is documentation only. It does not create a GitHub repository, push
-code, add a topic, or register the plugin in the Herdr Marketplace.
+This file is documentation only. The steps below create a public GitHub
+repository, push code, and list the plugin in the Herdr Marketplace. Each one
+needs separate, explicit authorization from the maintainer. Do not run them
+from an agent task that did not grant that authorization.
 
-Current authorization stops at the local repository
-`/home/dualf/works/quicktui-herdr`.
+Target repository: `quicktui/quicktui-herdr` (GitHub organization `quicktui`).
 
-## Later, after explicit authorization
+## First publication
 
-1. Create a public GitHub repository with `herdr-plugin.toml` at the root.
-2. Push the reviewed `develop` / `main` history. Do not force-push published
-   tags.
-3. Add the GitHub topic `herdr-plugin`. The Marketplace index is an automatic,
-   unreviewed GitHub topic crawl and refreshes about every 30 minutes.
-   See https://herdr.dev/docs/marketplace/
-4. Users can then install with:
+1. Create the public repository `quicktui/quicktui-herdr` with
+   `herdr-plugin.toml` at the root.
+2. Add the remote and push the reviewed `main` history and its tags. Do not
+   force-push published tags.
 
    ```sh
-   herdr plugin install owner/repo
+   git remote add origin git@github.com:quicktui/quicktui-herdr.git
+   git push -u origin main
+   git push origin --tags
    ```
 
-5. Keep `min_herdr_version = "0.8.0"` until the plugin actually needs a newer
+3. Set the repository description. The Marketplace card shows it next to the
+   star count and the plugin name and version. Reuse the manifest
+   `description`:
+
+   ```sh
+   gh repo edit quicktui/quicktui-herdr \
+     --description "Use Herdr from your iPhone or Android phone with QuickTUI: native mobile app, one-step install, QR pairing, and an optional end-to-end encrypted relay." \
+     --homepage "https://quicktui.ai/?ref=herdr"
+   ```
+
+4. Add the topic `herdr-plugin`. The Marketplace index is an automatic,
+   unreviewed GitHub topic crawl that refreshes about every 30 minutes.
+   See https://herdr.dev/docs/marketplace/
+
+   ```sh
+   gh repo edit quicktui/quicktui-herdr --add-topic herdr-plugin
+   ```
+
+5. Verify the listing: after the next crawl, the plugin appears on the
+   Marketplace with the expected name, version, and description, and this
+   works on a clean machine:
+
+   ```sh
+   herdr plugin install quicktui/quicktui-herdr
+   herdr plugin list --plugin ai.quicktui
+   ```
+
+6. Keep `min_herdr_version = "0.8.0"` until the plugin actually needs a newer
    Herdr API.
 
-## Do not do these from this repository today
+## Version sync with QuickTUI stable server
 
-- `git remote add` / `git push`
-- Creating GitHub topics
-- `herdr plugin install` from a guessed owner/repo
-- Uploading Marketplace assets
+The manifest `version` equals the latest published QuickTUI stable server tag
+(`server2-YYYYMMDD-NN`; preview tags do not count). After each server2 stable
+release:
 
-Herdr does not review Marketplace plugins. The trust model is: users inspect
-the manifest and scripts before linking or installing.
+1. Set `version` in `herdr-plugin.toml` to the new tag.
+2. Run `sh tests/run.sh`.
+3. Commit, then create a tag with the same name:
+
+   ```sh
+   git commit -am "Sync plugin version to server2-YYYYMMDD-NN"
+   git tag server2-YYYYMMDD-NN
+   ```
+
+4. Push the default branch and the tag (only after publication is authorized;
+   before that, keep the commit and tag local):
+
+   ```sh
+   git push origin main
+   git push origin server2-YYYYMMDD-NN
+   ```
+
+## Trust model
+
+Herdr does not review Marketplace plugins. Users inspect the manifest and
+scripts before installing. The install entry runs the official QuickTUI
+installer only after the user confirms in the pane; keep that behavior and the
+README description of it in sync.
