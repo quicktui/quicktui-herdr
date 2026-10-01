@@ -2,6 +2,8 @@
 set -eu
 log=${FAKE_INSTALLER_LOG:-/dev/null}
 printf 'argv0=%s argc=%s\n' "$0" "$#" >>"$log"
+# Mode of the directory holding this payload, e.g. drwx------.
+printf 'dirmode=%s\n' "$(ls -ld "$(dirname "$0")" | cut -c1-10)" >>"$log"
 if [ -t 0 ]; then
 	printf 'stdin=tty\n' >>"$log"
 fi

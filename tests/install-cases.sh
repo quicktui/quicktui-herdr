@@ -46,10 +46,11 @@ installer_argv0() {
 assert_installer_ran_from_temp_file() {
 	_argv0=$(installer_argv0)
 	case $_argv0 in
-	"$CASE/tmp/quicktui-q.sh."*) pass "$1 runs sh <private temp file>" ;;
+	"$CASE/tmp/quicktui-install."*/q.sh) pass "$1 runs sh <private temp file>" ;;
 	*) fail "$1 runs sh <private temp file> (argv0=$_argv0)" ;;
 	esac
 	assert_file_contains "$1 passes no installer args" "$CASE/installer.log" "argc=0"
+	assert_file_contains "$1 payload dir is private" "$CASE/installer.log" "dirmode=drwx------"
 	if [ -n "$_argv0" ] && [ ! -e "$_argv0" ]; then
 		pass "$1 removes the temp file"
 	else
@@ -105,7 +106,11 @@ assert_file_contains "install prompt asks for confirmation" "$CASE/out" "Install
 assert_file_contains "install downloads fixed URL" "$CASE/curl.log" "--url https://quicktui.ai/q.sh"
 assert_file_contains "install download is https only" "$CASE/curl.log" "--proto =https --proto-redir =https"
 assert_file_contains "install download fails on HTTP errors" "$CASE/curl.log" "--fail"
-assert_file_contains "install downloads to a temp file" "$CASE/curl.log" "--output $CASE/tmp/quicktui-q.sh."
+assert_file_contains "install downloads to a private temp dir" "$CASE/curl.log" "--output $CASE/tmp/quicktui-install."
+case $(head -n 1 "$CASE/curl.log") in
+"-q "*) pass "install curl ignores curlrc (-q first)" ;;
+*) fail "install curl ignores curlrc (-q first)" ;;
+esac
 assert_installer_ran_from_temp_file "confirmed install"
 assert_file_contains "installer keeps the pane TTY" "$CASE/installer.log" "stdin=tty"
 assert_file_contains "ready after install execs pairing welcome" "$CASE/qt.log" "pairing welcome --config $QUICKTUI_CONFIG"

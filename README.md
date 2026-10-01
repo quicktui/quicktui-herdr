@@ -80,10 +80,11 @@ description = "Install QuickTUI"
 QuickTUI Install (and Setup, when QuickTUI is missing) shows the official URL
 and waits for you to type `y` or `yes`. Only then does it:
 
-1. Download `https://quicktui.ai/q.sh` over HTTPS to a private temporary file
+1. Download `https://quicktui.ai/q.sh` over HTTPS into a private temporary
+   directory, ignoring `~/.curlrc`
 2. Run it as your user with `sh <file>` (the same installer as
    `curl -fsSL https://quicktui.ai/q.sh | sh`)
-3. Delete the temporary file
+3. Delete the temporary file and directory
 4. Wait up to 10 seconds for QuickTUI Server, then open `pairing welcome`
 
 Any other answer, or a pane without a TTY, downloads nothing. A failed download
