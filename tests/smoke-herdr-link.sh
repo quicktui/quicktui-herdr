@@ -66,7 +66,9 @@ for pane in plugin["panes"]:
     print("pane", pane["id"])
 PY
 cat "$WORKDIR/entries.txt"
-for entry in 'action install' 'pane install' 'action setup' 'pane setup' 'action pair-qrcode' 'pane pair-qrcode'; do
+for entry in 'action install' 'pane install' 'action setup' 'pane setup' 'action pair-qrcode' 'pane pair-qrcode' \
+	'action install-windows' 'pane install-windows' 'action setup-windows' 'pane setup-windows' \
+	'action pair-qrcode-windows' 'pane pair-qrcode-windows'; do
 	if ! grep -Fx -e "$entry" "$WORKDIR/entries.txt" >/dev/null; then
 		printf 'missing linked entry: %s\n' "$entry" >&2
 		exit 1

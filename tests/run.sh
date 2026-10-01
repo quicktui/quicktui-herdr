@@ -174,8 +174,25 @@ assert manifest["min_herdr_version"] == "0.8.0"
 assert re.fullmatch(r"server2-[0-9]{8}-[0-9]{2}", manifest["version"]), manifest["version"]
 for word in ("iPhone", "Android", "native", "pairing"):
     assert word.lower() in manifest["description"].lower(), word
-assert manifest["platforms"] == ["linux", "macos"]
-assert manifest["startup"][0]["command"] == ["./scripts/startup.sh"]
+assert manifest["platforms"] == ["linux", "macos", "windows"]
+unix = ["linux", "macos"]
+ps = ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File"]
+startup = manifest["startup"]
+assert [(s["platforms"], s["command"]) for s in startup] == [
+    (unix, ["./scripts/startup.sh"]),
+    (["windows"], ps + ["./scripts/windows/startup.ps1"]),
+]
+for kind in ("actions", "panes"):
+    ids = [item["id"] for item in manifest[kind]]
+    assert len(ids) == len(set(ids)), kind
+    for item in manifest[kind]:
+        if item["id"].endswith("-windows"):
+            assert item["platforms"] == ["windows"], item["id"]
+            assert item["command"][:5] == ps, item["id"]
+            assert (root / item["command"][5]).is_file(), item["id"]
+        else:
+            assert item["platforms"] == unix, item["id"]
+            assert item["id"] + "-windows" in ids, item["id"]
 actions = {item["id"]: item for item in manifest["actions"]}
 assert actions["setup"]["command"] == ["./scripts/open-pane.sh", "setup"]
 assert actions["pair-qrcode"]["command"] == ["./scripts/open-pane.sh", "pair-qrcode"]
@@ -188,6 +205,10 @@ assert panes["setup"]["placement"] == "popup"
 assert panes["pair-qrcode"]["command"] == ["./scripts/pair-qrcode.sh"]
 assert panes["install"]["command"] == ["./scripts/install.sh"]
 assert panes["install"]["placement"] == "popup"
+for entry in ("setup", "pair-qrcode", "install"):
+    assert actions[entry + "-windows"]["command"] == ps + ["./scripts/windows/open-pane.ps1", entry]
+    assert panes[entry + "-windows"]["command"] == ps + ["./scripts/windows/" + entry + ".ps1"]
+    assert panes[entry + "-windows"]["placement"] == "popup"
 print("ok")
 PY
 then
@@ -535,6 +556,9 @@ cleanup_case
 
 # --- install flow and first-run toast ---
 . "$ROOT/tests/install-cases.sh"
+
+# --- Windows PowerShell entry points under pwsh ---
+. "$ROOT/tests/windows-cases.sh"
 
 if [ "$FAILED" -ne 0 ]; then
 	printf '%s\n' "$FAILED failed / $RAN checks" >&2

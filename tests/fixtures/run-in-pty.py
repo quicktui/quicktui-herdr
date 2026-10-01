@@ -2,6 +2,7 @@
 """Run argv on a PTY, type one input line, and save the output.
 
 usage: run-in-pty.py <input-or-""> <output-file> <argv...>
+An empty input sends EOF. "<enter>" sends an empty line.
 Exits with the child's exit status.
 """
 import os
@@ -13,7 +14,9 @@ argv = sys.argv[3:]
 pid, fd = pty.fork()
 if pid == 0:
     os.execv(argv[0], argv)
-if typed:
+if typed == "<enter>":
+    os.write(fd, b"\n")
+elif typed:
     os.write(fd, typed.encode() + b"\n")
 else:
     os.write(fd, b"\x04")

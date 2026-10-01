@@ -2,6 +2,9 @@
 set -eu
 log=${FAKE_QT_LOG:-/dev/null}
 printf '%s\n' "$*" >>"$log"
+if [ -t 1 ]; then
+	printf 'stdout=tty\n' >>"$log"
+fi
 if [ "${1-}" = pairing ]; then
 	case ${2-} in
 	welcome | qrcode)

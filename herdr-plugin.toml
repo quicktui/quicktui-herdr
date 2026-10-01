@@ -3,13 +3,23 @@ name = "QuickTUI"
 version = "server2-20260929-02"
 min_herdr_version = "0.8.0"
 description = "Use Herdr from your iPhone or Android phone with QuickTUI: native mobile app, one-step install, QR pairing, and an optional end-to-end encrypted relay."
-platforms = ["linux", "macos"]
+platforms = ["linux", "macos", "windows"]
+
+# Unix entries use POSIX sh. Windows entries use Windows PowerShell 5.1 (also
+# compatible with PowerShell 7+). Herdr rejects duplicate action and pane ids
+# even when their platforms differ, so Windows ids carry a -windows suffix.
 
 [[startup]]
+platforms = ["linux", "macos"]
 command = ["./scripts/startup.sh"]
+
+[[startup]]
+platforms = ["windows"]
+command = ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "./scripts/windows/startup.ps1"]
 
 [[actions]]
 id = "setup"
+platforms = ["linux", "macos"]
 title = "QuickTUI Setup"
 description = "Open the QuickTUI setup pane and official pairing welcome guide."
 contexts = ["workspace", "global"]
@@ -17,6 +27,7 @@ command = ["./scripts/open-pane.sh", "setup"]
 
 [[actions]]
 id = "install"
+platforms = ["linux", "macos"]
 title = "QuickTUI Install"
 description = "Open a pane that installs QuickTUI with the official installer after you confirm."
 contexts = ["workspace", "global"]
@@ -24,6 +35,7 @@ command = ["./scripts/open-pane.sh", "install"]
 
 [[actions]]
 id = "pair-qrcode"
+platforms = ["linux", "macos"]
 title = "QuickTUI Pairing QR"
 description = "Open a pane with the official QuickTUI pairing QR code when the server is ready."
 contexts = ["workspace", "global"]
@@ -31,6 +43,7 @@ command = ["./scripts/open-pane.sh", "pair-qrcode"]
 
 [[panes]]
 id = "setup"
+platforms = ["linux", "macos"]
 title = "QuickTUI Setup"
 description = "Interactive QuickTUI setup and pairing entry."
 placement = "popup"
@@ -40,6 +53,7 @@ command = ["./scripts/setup.sh"]
 
 [[panes]]
 id = "pair-qrcode"
+platforms = ["linux", "macos"]
 title = "QuickTUI Pairing QR"
 description = "Official QuickTUI pairing QR code."
 placement = "popup"
@@ -49,9 +63,64 @@ command = ["./scripts/pair-qrcode.sh"]
 
 [[panes]]
 id = "install"
+platforms = ["linux", "macos"]
 title = "QuickTUI Install"
 description = "Confirm and run the official QuickTUI installer, then pair a device."
 placement = "popup"
 width = "80%"
 height = 24
 command = ["./scripts/install.sh"]
+
+[[actions]]
+id = "setup-windows"
+platforms = ["windows"]
+title = "QuickTUI Setup"
+description = "Open the QuickTUI setup pane and official pairing welcome guide."
+contexts = ["workspace", "global"]
+command = ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "./scripts/windows/open-pane.ps1", "setup"]
+
+[[actions]]
+id = "install-windows"
+platforms = ["windows"]
+title = "QuickTUI Install"
+description = "Open a pane that installs QuickTUI with the official installer after you confirm."
+contexts = ["workspace", "global"]
+command = ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "./scripts/windows/open-pane.ps1", "install"]
+
+[[actions]]
+id = "pair-qrcode-windows"
+platforms = ["windows"]
+title = "QuickTUI Pairing QR"
+description = "Open a pane with the official QuickTUI pairing QR code when the server is ready."
+contexts = ["workspace", "global"]
+command = ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "./scripts/windows/open-pane.ps1", "pair-qrcode"]
+
+[[panes]]
+id = "setup-windows"
+platforms = ["windows"]
+title = "QuickTUI Setup"
+description = "Interactive QuickTUI setup and pairing entry."
+placement = "popup"
+width = "80%"
+height = 24
+command = ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "./scripts/windows/setup.ps1"]
+
+[[panes]]
+id = "pair-qrcode-windows"
+platforms = ["windows"]
+title = "QuickTUI Pairing QR"
+description = "Official QuickTUI pairing QR code."
+placement = "popup"
+width = "80%"
+height = 24
+command = ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "./scripts/windows/pair-qrcode.ps1"]
+
+[[panes]]
+id = "install-windows"
+platforms = ["windows"]
+title = "QuickTUI Install"
+description = "Confirm and run the official QuickTUI installer, then pair a device."
+placement = "popup"
+width = "80%"
+height = 24
+command = ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "./scripts/windows/install.ps1"]
