@@ -14,11 +14,21 @@ GitHub publishing. Do not invent a remote or treat Marketplace listing as done.
 
 ## Scripts
 
-- POSIX `sh` only in `scripts/`
-- Commands use argv. Do not use `eval`, `sh -c`, or string shell concatenation
+- Unix entries use POSIX `sh` in `scripts/`. Windows entries use PowerShell in
+  `scripts/windows/`: compatible with Windows PowerShell 5.1 and 7+, called by
+  argv, no `Invoke-Expression`, pure ASCII with LF line endings (same rules as
+  QuickTUI `q.ps1`)
+- Commands use argv. Do not use `eval`, `sh -c`, `Invoke-Expression`, or string
+  shell concatenation
+- Windows action and pane ids carry a `-windows` suffix; Herdr rejects
+  duplicate ids even when their `platforms` differ
+- Call Herdr only through `HERDR_BIN_PATH`. On Windows its socket is a named
+  pipe; never connect to it directly
 - Run the official QuickTUI installer only after the user confirms each time
   on a TTY. Download it to a private temp file and run it with argv
-  (`sh <file>`); never pipe it into a shell. Delete the file afterwards
+  (`sh <file>`, or `powershell.exe -NoProfile -ExecutionPolicy Bypass -File
+  <file.ps1>` on Windows); never pipe it into a shell or `iex`. Delete the file
+  afterwards
 - The plugin itself starts no daemon. After the user confirms, the official
   installer may install and start the QuickTUI service through its own flow
 - Do not save pairing codes, tokens, or identity material
@@ -28,6 +38,11 @@ GitHub publishing. Do not invent a remote or treat Marketplace listing as done.
 ```sh
 sh tests/run.sh
 ```
+
+`tests/run.sh` includes the Windows PowerShell fixture tests when `pwsh` is on
+`PATH` (`QT_REQUIRE_PWSH=1` turns a missing `pwsh` into a failure). They do not
+prove Windows PowerShell 5.1, Windows paths, or ConPTY behavior; test those on
+a real Windows host.
 
 Optional real Herdr smoke, after a v0.8.0 `herdr` binary is available:
 
