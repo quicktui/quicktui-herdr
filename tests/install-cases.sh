@@ -281,7 +281,9 @@ stop_capability
 cleanup_case
 
 new_case
-printf '%s\n' '#!/bin/sh' 'if [ "${1-}" = notification ]; then sleep 37 & wait; fi' 'exit 0' >"$CASE/bin/herdr"
+# Unique sleep argument so concurrent suites on this host cannot collide.
+_sleep_arg=37.$$
+printf '%s\n' '#!/bin/sh' "if [ \"\${1-}\" = notification ]; then sleep $_sleep_arg & wait; fi" 'exit 0' >"$CASE/bin/herdr"
 chmod 0755 "$CASE/bin/herdr"
 rm -f "$CASE/bin/quicktui-server"
 before=$(pgrep -c -P $$ || true)
@@ -301,7 +303,7 @@ if [ -e "$CASE/state/onboarding.env" ]; then
 else
 	pass "hanging toast writes no marker"
 fi
-if pgrep -f "^sleep 37$" >/dev/null 2>&1 || pgrep -f "$CASE/bin/herdr" >/dev/null 2>&1; then
+if pgrep -f "^sleep $_sleep_arg$" >/dev/null 2>&1 || pgrep -f "$CASE/bin/herdr" >/dev/null 2>&1; then
 	fail "hanging toast process group is killed"
 else
 	pass "hanging toast process group is killed"
