@@ -180,6 +180,18 @@ run_ps startup.ps1
 assert_file_contains "win falls back to USERPROFILE AppData Local" "$CASE/out" "status=not_running"
 cleanup_case
 
+new_win_case
+rm -f "$CASE/bin/quicktui-server"
+unset LOCALAPPDATA USERPROFILE
+mkdir -p "$HOME/AppData/Local/QuickTUI"
+cp "$FIXTURES/fake-quicktui-server" "$HOME/AppData/Local/QuickTUI/quicktui-server.exe"
+chmod 0755 "$HOME/AppData/Local/QuickTUI/quicktui-server.exe"
+export QUICKTUI_CONFIG=$CASE/closed.toml
+printf 'addr = "127.0.0.1:%s"\n' "$(free_port)" >"$QUICKTUI_CONFIG"
+run_ps startup.ps1
+assert_file_contains "win falls back to HOME AppData Local without USERPROFILE" "$CASE/out" "status=not_running"
+cleanup_case
+
 # --- installed, not running ---
 new_win_case
 export QUICKTUI_SERVER_BIN=$CASE/bin/quicktui-server

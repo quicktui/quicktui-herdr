@@ -24,7 +24,7 @@ $script:QtIsWindows = ($PSVersionTable.PSEdition -eq 'Desktop') -or ((Test-Path 
 $script:QtAllowedEnv = @(
     'HERDR_BIN_PATH', 'HERDR_PLUGIN_ID', 'HERDR_PLUGIN_ROOT', 'HERDR_SOCKET_PATH',
     'HERDR_PLUGIN_STATE_DIR', 'HERDR_PLUGIN_CONFIG_DIR', 'QUICKTUI_SERVER_BIN',
-    'QUICKTUI_CONFIG', 'USERPROFILE', 'LOCALAPPDATA', 'SystemRoot'
+    'QUICKTUI_CONFIG', 'USERPROFILE', 'HOME', 'LOCALAPPDATA', 'SystemRoot'
 )
 
 function Write-QtLog([string]$Message) {
@@ -218,18 +218,24 @@ function Invoke-QtBounded([string]$FilePath, [string[]]$ArgumentList, [int]$Time
     }
 }
 
-function Get-QtHomeDir {
-    # quicktui-server uses Go os.UserHomeDir(), which is %USERPROFILE% on Windows.
-    $homeDir = Get-QtEnv 'USERPROFILE'
-    if ((Test-QtSafePath $homeDir) -and (Test-QtAbsPath $homeDir)) {
-        return $homeDir
+function Get-QtSafeAbsEnv([string]$Name) {
+    $value = Get-QtEnv $Name
+    if ((Test-QtSafePath $value) -and (Test-QtAbsPath $value)) {
+        return $value
     }
     return ''
 }
 
+function Get-QtHomeDir {
+    # quicktui-server uses Go os.UserHomeDir(), which is %USERPROFILE% on Windows.
+    return Get-QtSafeAbsEnv 'USERPROFILE'
+}
+
 function Get-QtInstallDir {
     # Mirrors the QuickTUI installer windows_install_dir():
-    # %LOCALAPPDATA%\QuickTUI, else %USERPROFILE%\AppData\Local\QuickTUI.
+    # %LOCALAPPDATA%\QuickTUI, else <USERPROFILE, or HOME when USERPROFILE is
+    # unset>\AppData\Local\QuickTUI. Only the installer has the HOME fallback;
+    # the server config path does not.
     $base = Get-QtEnv 'LOCALAPPDATA'
     if ($base.Trim() -ne '') {
         if ((Test-QtSafePath $base) -and (Test-QtAbsPath $base)) {
@@ -237,7 +243,11 @@ function Get-QtInstallDir {
         }
         return ''
     }
-    $homeDir = Get-QtHomeDir
+    if ((Get-QtEnv 'USERPROFILE') -ne '') {
+        $homeDir = Get-QtHomeDir
+    } else {
+        $homeDir = Get-QtSafeAbsEnv 'HOME'
+    }
     if ($homeDir -eq '') {
         return ''
     }
