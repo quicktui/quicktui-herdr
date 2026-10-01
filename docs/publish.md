@@ -56,20 +56,25 @@ The manifest `version` equals the latest published QuickTUI stable server tag
 (`server2-YYYYMMDD-NN`; preview tags do not count). After each server2 stable
 release:
 
-1. Set `version` in `herdr-plugin.toml` to the new tag.
-2. Run `sh tests/run.sh`.
-3. Commit, then create a tag with the same name:
+1. On `develop`, set `version` in `herdr-plugin.toml` to the new tag.
+2. Run `sh tests/run.sh`, then commit on `develop`.
+3. Bring the commit to `main` with a fast-forward, and create the tag on that
+   `main` commit:
 
    ```sh
+   git switch develop
    git commit -am "Sync plugin version to server2-YYYYMMDD-NN"
+   git switch main
+   git merge --ff-only develop
    git tag server2-YYYYMMDD-NN
+   git switch develop
    ```
 
-4. Push the default branch and the tag (only after publication is authorized;
-   before that, keep the commit and tag local):
+4. Push `main` and the tag (only after publication is authorized; before
+   that, keep the commits and tag local):
 
    ```sh
-   git push origin main
+   git push origin main develop
    git push origin server2-YYYYMMDD-NN
    ```
 

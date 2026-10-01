@@ -79,6 +79,18 @@ else
 	pass "README and scripts have no CN mirror"
 fi
 
+_missing_images=
+for _image in $(grep -oE 'docs/images/[A-Za-z0-9._-]+' "$ROOT/README.md"); do
+	if [ ! -s "$ROOT/$_image" ]; then
+		_missing_images="$_missing_images $_image"
+	fi
+done
+if [ -z "$_missing_images" ] && grep -F -e 'docs/images/' "$ROOT/README.md" >/dev/null; then
+	pass "README images exist in the repository"
+else
+	fail "README images exist in the repository (missing:$_missing_images)"
+fi
+
 # --- confirmed install, server becomes ready, pairing welcome ---
 new_install_case
 PORT=$(free_port)

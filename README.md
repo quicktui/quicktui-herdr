@@ -4,7 +4,13 @@
 installs [QuickTUI](https://quicktui.ai/?ref=herdr) with one confirmed step and
 pairs your phone with a QR code, right inside Herdr.
 
-<!-- Screenshot / GIF placeholder: Herdr popup with the QuickTUI pairing QR code. -->
+![QuickTUI: your terminal on iPhone and Android](docs/images/og-image.png)
+
+<p>
+  <img src="docs/images/terminal-en.webp" width="220" alt="QuickTUI terminal on a phone">
+  <img src="docs/images/switcher-en.webp" width="220" alt="QuickTUI session switcher">
+  <img src="docs/images/input-bar-en.webp" width="220" alt="QuickTUI input bar">
+</p>
 
 ## Why QuickTUI
 
@@ -19,7 +25,7 @@ pairs your phone with a QR code, right inside Herdr.
 Get the app:
 
 - iPhone / iPad: [App Store](https://apps.apple.com/app/quicktui/id6761338192)
-- Android: Google Play <!-- link placeholder until the listing is public -->
+- Android: [quicktui.ai/android](https://quicktui.ai/android/?ref=herdr)
 
 Supported hosts: macOS and Linux. Minimum Herdr version: **0.8.0**.
 
@@ -29,8 +35,10 @@ Supported hosts: macOS and Linux. Minimum Herdr version: **0.8.0**.
 herdr plugin install quicktui/quicktui-herdr
 ```
 
-On first start, Herdr shows a one-time QuickTUI toast that points you to the
-next step.
+On its first start, the plugin tries to show one QuickTUI toast in Herdr that
+points you to the next step. It records that the toast was shown only after
+Herdr accepts it. Without `python3`, or when the toast command fails, nothing is
+recorded and the plugin tries again on the next start.
 
 ## Use it
 
@@ -39,7 +47,7 @@ next step.
 | QuickTUI Install | `ai.quicktui.install` | Asks for confirmation, then runs the official QuickTUI installer and opens pairing |
 | QuickTUI Setup | `ai.quicktui.setup` | Missing: same confirmed install. Not running: start guide. Ready: `pairing welcome` |
 | QuickTUI Pairing QR | `ai.quicktui.pair-qrcode` | Shows the official pairing QR code when QuickTUI Server is ready |
-| Startup hook | `[[startup]]` | Bounded health check after Herdr starts, plus the one-time toast; then exits |
+| Startup hook | `[[startup]]` | Bounded health check after Herdr starts, plus the first-run toast attempt; then exits |
 
 Windows entries are documented separately once Windows support lands.
 
