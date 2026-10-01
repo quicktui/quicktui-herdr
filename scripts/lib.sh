@@ -9,8 +9,8 @@ QT_CLI_FAILED=5
 
 QT_DEFAULT_LISTEN=0.0.0.0:8022
 QT_CAPABILITY_PATH=/.well-known/quicktui-server-capability
+# Display text only. The install flow never pipes into a shell.
 QT_INSTALL_GLOBAL='curl -fsSL https://quicktui.ai/q.sh | sh'
-QT_INSTALL_CN='curl -fsSL https://dl.quicktui.cn/q.sh | sh'
 
 qt_log() {
 	printf 'quicktui-herdr: %s\n' "$1"
@@ -510,15 +510,12 @@ qt_print_install_guide() {
 	cat <<EOF
 QuickTUI Server is not installed on this machine.
 
-This plugin is only a Herdr entry point. It does not download or run the
-installer, and it does not start a second server.
+Open the QuickTUI Install action (ai.quicktui.install) in Herdr. It asks for
+confirmation, then runs the official installer. Or run it yourself:
 
-Official install (run it yourself if you want QuickTUI):
+  $QT_INSTALL_GLOBAL
 
-  Global: $QT_INSTALL_GLOBAL
-  China:  $QT_INSTALL_CN
-
-Docs: https://quicktui.ai/install/
+Docs: https://quicktui.ai/install/?ref=herdr
 EOF
 }
 
@@ -661,7 +658,7 @@ qt_open_plugin_pane() {
 	# Actions run without a TTY. Open the declared pane so pairing is visible.
 	_qt_entry=$1
 	case $_qt_entry in
-	setup | pair-qrcode) ;;
+	setup | pair-qrcode | install) ;;
 	*)
 		qt_err 'unknown pane entrypoint'
 		return "$QT_USAGE"

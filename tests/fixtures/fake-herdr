@@ -6,4 +6,7 @@ if [ "${1-}" = session ] && [ "${2-}" = list ]; then
 	printf '%s\n' "${FAKE_HERDR_SESSION_JSON-{\"sessions\":[{\"name\":\"ok\"}]}}"
 	exit "${FAKE_HERDR_EXIT:-0}"
 fi
+if [ "${1-}" = notification ] && [ "${2-}" = show ]; then
+	exit "${FAKE_HERDR_NOTIFY_EXIT:-0}"
+fi
 exit "${FAKE_HERDR_EXIT:-0}"

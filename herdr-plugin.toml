@@ -1,8 +1,8 @@
 id = "ai.quicktui"
 name = "QuickTUI"
-version = "0.1.0"
+version = "server2-20260929-02"
 min_herdr_version = "0.8.0"
-description = "Discover QuickTUI Server and open the official pairing flow from Herdr."
+description = "Use Herdr from your iPhone or Android phone with QuickTUI: native mobile app, one-step install, QR pairing, and an optional end-to-end encrypted relay."
 platforms = ["linux", "macos"]
 
 [[startup]]
@@ -14,6 +14,13 @@ title = "QuickTUI Setup"
 description = "Open the QuickTUI setup pane and official pairing welcome guide."
 contexts = ["workspace", "global"]
 command = ["./scripts/open-pane.sh", "setup"]
+
+[[actions]]
+id = "install"
+title = "QuickTUI Install"
+description = "Open a pane that installs QuickTUI with the official installer after you confirm."
+contexts = ["workspace", "global"]
+command = ["./scripts/open-pane.sh", "install"]
 
 [[actions]]
 id = "pair-qrcode"
@@ -39,3 +46,12 @@ placement = "popup"
 width = "80%"
 height = 24
 command = ["./scripts/pair-qrcode.sh"]
+
+[[panes]]
+id = "install"
+title = "QuickTUI Install"
+description = "Confirm and run the official QuickTUI installer, then pair a device."
+placement = "popup"
+width = "80%"
+height = 24
+command = ["./scripts/install.sh"]

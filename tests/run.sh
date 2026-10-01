@@ -8,6 +8,8 @@ FAILED=0
 RAN=0
 QT_CAP_PID=
 CASE=
+TEST_TMP_ROOT=${TMPDIR:-/tmp}
+REAL_CURL=$(command -v curl)
 
 pass() {
 	RAN=$((RAN + 1))
@@ -35,7 +37,7 @@ assert_file_contains() {
 	_name=$1
 	_file=$2
 	_needle=$3
-	if grep -F "$_needle" "$_file" >/dev/null 2>&1; then
+	if grep -F -e "$_needle" "$_file" >/dev/null 2>&1; then
 		pass "$_name"
 	else
 		fail "$_name (missing $_needle in $_file)"
@@ -46,7 +48,7 @@ assert_file_not_contains() {
 	_name=$1
 	_file=$2
 	_needle=$3
-	if grep -F "$_needle" "$_file" >/dev/null 2>&1; then
+	if grep -F -e "$_needle" "$_file" >/dev/null 2>&1; then
 		fail "$_name (found $_needle in $_file)"
 	else
 		pass "$_name"
@@ -98,8 +100,8 @@ stop_capability() {
 }
 
 new_case() {
-	CASE=$(mktemp -d "${TMPDIR:-/tmp}/quicktui-herdr-test.XXXXXX")
-	mkdir -p "$CASE/home" "$CASE/bin" "$CASE/state" "$CASE/config" "$CASE/path space"
+	CASE=$(mktemp -d "$TEST_TMP_ROOT/quicktui-herdr-test.XXXXXX")
+	mkdir -p "$CASE/home" "$CASE/bin" "$CASE/state" "$CASE/config" "$CASE/path space" "$CASE/tmp"
 	cp "$FIXTURES/fake-herdr" "$CASE/bin/herdr"
 	cp "$FIXTURES/fake-quicktui-server" "$CASE/bin/quicktui-server"
 	chmod 0755 "$CASE/bin/herdr" "$CASE/bin/quicktui-server"
@@ -114,6 +116,7 @@ new_case() {
 	export FAKE_HERDR_LOG=$CASE/herdr.log
 	export FAKE_QT_LOG=$CASE/qt.log
 	unset QUICKTUI_SERVER_BIN QUICKTUI_CONFIG FAKE_QT_ISSUE_CODE FAKE_HERDR_EXIT FAKE_QT_EXIT
+	unset FAKE_HERDR_NOTIFY_EXIT FAKE_CURL_EXIT FAKE_INSTALLER_EXIT FAKE_INSTALLER_SERVER_SRC TMPDIR
 	: >"$FAKE_HERDR_LOG"
 	: >"$FAKE_QT_LOG"
 }
@@ -162,22 +165,29 @@ run_qr() {
 # --- static checks ---
 if python3 - <<PY
 import pathlib
+import re
 import tomllib
 root = pathlib.Path("$ROOT")
 manifest = tomllib.loads((root / "herdr-plugin.toml").read_text())
 assert manifest["id"] == "ai.quicktui"
 assert manifest["min_herdr_version"] == "0.8.0"
+assert re.fullmatch(r"server2-[0-9]{8}-[0-9]{2}", manifest["version"]), manifest["version"]
+for word in ("iPhone", "Android", "native", "pairing"):
+    assert word.lower() in manifest["description"].lower(), word
 assert manifest["platforms"] == ["linux", "macos"]
 assert manifest["startup"][0]["command"] == ["./scripts/startup.sh"]
 actions = {item["id"]: item for item in manifest["actions"]}
 assert actions["setup"]["command"] == ["./scripts/open-pane.sh", "setup"]
 assert actions["pair-qrcode"]["command"] == ["./scripts/open-pane.sh", "pair-qrcode"]
+assert actions["install"]["command"] == ["./scripts/open-pane.sh", "install"]
 assert "workspace" in actions["setup"]["contexts"]
 assert "global" in actions["setup"]["contexts"]
 panes = {item["id"]: item for item in manifest["panes"]}
 assert panes["setup"]["command"] == ["./scripts/setup.sh"]
 assert panes["setup"]["placement"] == "popup"
 assert panes["pair-qrcode"]["command"] == ["./scripts/pair-qrcode.sh"]
+assert panes["install"]["command"] == ["./scripts/install.sh"]
+assert panes["install"]["placement"] == "popup"
 print("ok")
 PY
 then
@@ -200,7 +210,7 @@ else
 	fail "scripts contain no eval or sh -c"
 fi
 
-for _script in startup.sh setup.sh pair-qrcode.sh open-pane.sh; do
+for _script in startup.sh setup.sh pair-qrcode.sh open-pane.sh install.sh; do
 	if [ -x "$ROOT/scripts/$_script" ]; then
 		pass "scripts/$_script is executable"
 	else
@@ -430,6 +440,12 @@ RC=$?
 set -e
 assert_file_contains "open-pane qrcode argv" "$CASE/herdr.log" "plugin pane open --plugin ai.quicktui --entrypoint pair-qrcode"
 set +e
+"$ROOT/scripts/open-pane.sh" install >"$CASE/out" 2>"$CASE/err"
+RC=$?
+set -e
+assert_eq "open-pane install exits 0" "$RC" 0
+assert_file_contains "open-pane install argv" "$CASE/herdr.log" "plugin pane open --plugin ai.quicktui --entrypoint install"
+set +e
 "$ROOT/scripts/open-pane.sh" 'setup;touch-pwned' >"$CASE/out" 2>"$CASE/err"
 RC=$?
 set -e
@@ -517,16 +533,8 @@ run_startup
 assert_file_contains "startup calls herdr session list" "$CASE/herdr.log" "session list --json"
 cleanup_case
 
-# --- remote installer is never invoked ---
-if awk '
-	$0 ~ /^[ \t]*#/ { next }
-	$0 ~ /^[ \t]*(curl|wget)[ \t].*q\.sh/ { bad = 1 }
-	END { exit bad ? 1 : 0 }
-' "$ROOT/scripts"/*.sh >/dev/null 2>&1; then
-	pass "scripts do not download q.sh"
-else
-	fail "scripts do not download q.sh"
-fi
+# --- install flow and first-run toast ---
+. "$ROOT/tests/install-cases.sh"
 
 if [ "$FAILED" -ne 0 ]; then
 	printf '%s\n' "$FAILED failed / $RAN checks" >&2

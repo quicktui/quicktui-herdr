@@ -1,10 +1,13 @@
 #!/bin/sh
-# Interactive QuickTUI setup / pairing entry. Does not start a daemon.
+# Interactive QuickTUI setup / pairing entry. Offers the confirmed install flow
+# when QuickTUI is missing. The plugin itself starts no daemon.
 set -eu
 
 QT_SCRIPTS_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 # shellcheck disable=SC1091
 . "$QT_SCRIPTS_DIR/lib.sh"
+# shellcheck disable=SC1091
+. "$QT_SCRIPTS_DIR/lib-install.sh"
 
 qt_require_herdr_runtime || exit $?
 qt_discover
@@ -12,8 +15,9 @@ qt_finish_discovery
 
 case $QT_STATUS in
 missing)
-	qt_print_install_guide
-	exit "$QT_OK"
+	_qt_rc=0
+	qt_run_install_flow || _qt_rc=$?
+	exit "$_qt_rc"
 	;;
 invalid_bin | invalid_config)
 	qt_err "cannot open pairing because discovery status is $QT_STATUS"

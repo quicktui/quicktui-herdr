@@ -1,0 +1,22 @@
+#!/bin/sh
+# Fake curl for the install flow. Other URLs pass through to the real curl so
+# capability probes keep working.
+set -eu
+url=
+out=
+prev=
+for arg in "$@"; do
+	case $prev in
+	--url) url=$arg ;;
+	--output) out=$arg ;;
+	esac
+	prev=$arg
+done
+if [ "$url" != "https://quicktui.ai/q.sh" ]; then
+	exec "$FAKE_REAL_CURL" "$@"
+fi
+printf '%s\n' "$*" >>"${FAKE_CURL_LOG:-/dev/null}"
+if [ -n "${FAKE_CURL_EXIT-}" ]; then
+	exit "$FAKE_CURL_EXIT"
+fi
+cat "$FAKE_CURL_PAYLOAD" >"$out"
