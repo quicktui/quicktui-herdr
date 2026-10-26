@@ -1,6 +1,6 @@
 id = "ai.quicktui"
 name = "QuickTUI"
-version = "server2-20261002-01"
+version = "server2-20261026-01"
 min_herdr_version = "0.8.0"
 description = "Use Herdr from your iPhone or Android phone with QuickTUI: native mobile app, one-step install, QR pairing, and an optional end-to-end encrypted relay."
 platforms = ["linux", "macos", "windows"]
