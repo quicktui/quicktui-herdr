@@ -47,8 +47,9 @@ Target repository: `quicktui/quicktui-herdr` (GitHub organization `quicktui`).
    herdr plugin list --plugin ai.quicktui
    ```
 
-6. Keep `min_herdr_version = "0.8.0"` until the plugin actually needs a newer
-   Herdr API.
+6. Keep `min_herdr_version` at the oldest Herdr that QuickTUI Server supports
+   (`0.9.0` since `server2-20261026-01`). Raise it when the server or the
+   plugin needs a newer Herdr.
 
 ## Version sync with QuickTUI stable server
 

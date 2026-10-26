@@ -27,9 +27,8 @@ Get the app:
 - iPhone / iPad: [App Store](https://apps.apple.com/app/quicktui/id6761338192)
 - Android: [quicktui.ai/android](https://quicktui.ai/android/?ref=herdr)
 
-Supported hosts: macOS, Linux, and Windows. Minimum Herdr version: **0.8.0**
-(Windows: 0.9.0 or newer recommended, the first release that resolves Windows
-plugin pane launch paths from the plugin root).
+Supported hosts: macOS, Linux, and Windows. Minimum Herdr version: **0.9.0**,
+the oldest Herdr that QuickTUI Server supports.
 
 ## Install the plugin
 

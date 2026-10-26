@@ -170,7 +170,7 @@ import tomllib
 root = pathlib.Path("$ROOT")
 manifest = tomllib.loads((root / "herdr-plugin.toml").read_text())
 assert manifest["id"] == "ai.quicktui"
-assert manifest["min_herdr_version"] == "0.8.0"
+assert manifest["min_herdr_version"] == "0.9.0"
 assert re.fullmatch(r"server2-[0-9]{8}-[0-9]{2}", manifest["version"]), manifest["version"]
 for word in ("iPhone", "Android", "native", "pairing"):
     assert word.lower() in manifest["description"].lower(), word

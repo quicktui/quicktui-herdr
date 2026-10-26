@@ -44,7 +44,7 @@ sh tests/run.sh
 prove Windows PowerShell 5.1, Windows paths, or ConPTY behavior; test those on
 a real Windows host.
 
-Optional real Herdr smoke, after a v0.8.0 `herdr` binary is available:
+Optional real Herdr smoke, after a v0.9.0 or newer `herdr` binary is available:
 
 ```sh
 HERDR_BIN=/path/to/herdr sh tests/smoke-herdr-link.sh
