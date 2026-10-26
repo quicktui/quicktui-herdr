@@ -13,6 +13,10 @@ closed-source server, auth, Relay, or AgentBridge2 code.
 Herdr Marketplace through the `herdr-plugin` topic. Pushing still needs the
 maintainer's authorization for each version sync.
 
+## Commits
+
+- Write every commit message in English.
+
 ## Scripts
 
 - Unix entries use POSIX `sh` in `scripts/`. Windows entries use PowerShell in

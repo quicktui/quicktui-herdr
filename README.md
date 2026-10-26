@@ -1,31 +1,70 @@
 # QuickTUI for Herdr
 
-**Use your Herdr sessions from your iPhone or Android phone.** This plugin
-installs [QuickTUI](https://quicktui.ai/?ref=herdr) with one confirmed step and
-pairs your phone with a QR code, right inside Herdr.
+**Run and steer your Herdr agents from your iPhone, iPad, or Android phone.**
+Herdr keeps each AI coding agent running in its own terminal on your computer.
+[QuickTUI](https://quicktui.ai/herdr-ios-app/?ref=herdr) opens those workspaces
+on your phone, shows every agent's live state, and lets you approve, answer, or
+take over the terminal whenever an agent needs you. This plugin installs
+QuickTUI with one confirmed step and pairs your phone with a QR code, right
+inside Herdr.
 
-![QuickTUI: your terminal on iPhone and Android](docs/images/og-image.png)
+![QuickTUI: your coding agents, in your pocket](docs/images/og-image.png)
 
 <p>
-  <img src="docs/images/terminal-en.webp" width="220" alt="QuickTUI terminal on a phone">
-  <img src="docs/images/switcher-en.webp" width="220" alt="QuickTUI session switcher">
-  <img src="docs/images/input-bar-en.webp" width="220" alt="QuickTUI input bar">
+  <img src="docs/images/01-approve.webp" width="220" alt="Approve an agent request from a notification or from chat">
+  <img src="docs/images/03-agents.webp" width="220" alt="Live status for every agent, urgent first">
+  <img src="docs/images/05-launch.webp" width="220" alt="Agent Wizard: pick an agent and a folder, then launch">
+</p>
+<p>
+  <img src="docs/images/06-terminal.webp" width="220" alt="A real terminal with command palette and D-pad">
+  <img src="docs/images/07-input.webp" width="220" alt="Send screenshots and clipboard history to your agent">
+  <img src="docs/images/10-setup.webp" width="220" alt="Install the server over SSH, then connect">
 </p>
 
 ## Why QuickTUI
 
+- **Know when an agent needs you**: get notified the moment an agent asks for
+  approval or has a question, then approve or answer right from the
+  notification or in chat
+- **Every agent at a glance**: each Herdr tab shows its agent's live state
+  (working, idle, waiting for input, or done), so you see which session needs
+  attention first
+- **Launch any agent in one tap**: the Agent Wizard starts Claude Code, Codex,
+  OpenCode, Grok, Gemini, Cursor, Kimi, Qoder, or Pi in a new Herdr tab, in the
+  folder you pick
+- **Chat or terminal**: a chat mode with Markdown rendering, plus a full
+  terminal with shortcut bars, a D-pad, and a command palette
 - **Native mobile apps**: real iOS and Android clients, not a web terminal in a
   browser tab
-- **Pair in seconds**: scan a QR code from the QuickTUI Pairing QR pane
-- **Reach your machine from anywhere**: the optional QuickTUI Relay is end-to-end
-  encrypted and needs no Tailscale, VPN, or port forwarding
-- **Built for agents**: run Claude Code, Codex, or any CLI agent in Herdr and
-  check on it from your phone
+- **Reach your computer from anywhere**: connect directly, or through QuickTUI
+  Cloud when there is no public IP or port forwarding, end-to-end encrypted.
+  Every account gets a free monthly Cloud data allowance
+- **Your machine, your data**: each device pairs with its own key; your code,
+  keys, and API quotas stay on your computer. Direct connections need no
+  account
 
-Get the app:
+## How Herdr maps to the app
+
+| Herdr | In QuickTUI | From your phone |
+| --- | --- | --- |
+| Workspace | Workspace, in the same order as Herdr's sidebar | Create and rename |
+| Tab | Session, with an agent status icon | Create, rename, and close |
+| Pane | Pane | Switch to, zoom, and close |
+
+Splitting panes and changing layouts stay on your computer. The QuickTUI
+server starts Herdr when needed, and disconnecting the app never stops Herdr
+or closes a pane. tmux and Herdr can be enabled together.
+
+## Get the app
 
 - iPhone / iPad: [App Store](https://apps.apple.com/app/quicktui/id6761338192)
+  (iOS 16.4 or later)
 - Android: [quicktui.ai/android](https://quicktui.ai/android/?ref=herdr)
+  (Preview, Android 8.0 or later)
+
+QuickTUI is free for one computer, with every feature included. QuickTUI Pro,
+a one-time purchase on iPhone and iPad, unlocks unlimited computers. The
+Android Preview includes every feature for free. QuickTUI Cloud is optional.
 
 Supported hosts: macOS, Linux, and Windows. Minimum Herdr version: **0.9.0**,
 the oldest Herdr that QuickTUI Server supports.
@@ -176,7 +215,7 @@ installer and server defaults.
 ## Versioning
 
 The plugin version matches the QuickTUI stable server release it was tested
-with (for example `server2-20260929-02`).
+with (for example `server2-20261026-01`).
 
 ## Development
 
