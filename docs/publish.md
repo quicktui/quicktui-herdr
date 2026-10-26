@@ -15,7 +15,7 @@ Target repository: `quicktui/quicktui-herdr` (GitHub organization `quicktui`).
    force-push published tags.
 
    ```sh
-   git remote add origin git@github.com:quicktui/quicktui-herdr.git
+   git remote add origin https://github.com/quicktui/quicktui-herdr.git
    git push -u origin main
    git push origin --tags
    ```

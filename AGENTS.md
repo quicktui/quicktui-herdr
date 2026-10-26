@@ -9,8 +9,9 @@ closed-source server, auth, Relay, or AgentBridge2 code.
 - `develop`: local integration branch
 - Task branches start from `develop`
 
-This repository has no `origin` until a later task explicitly authorizes
-GitHub publishing. Do not invent a remote or treat Marketplace listing as done.
+`origin` is the public repository `quicktui/quicktui-herdr`, listed in the
+Herdr Marketplace through the `herdr-plugin` topic. Pushing still needs the
+maintainer's authorization for each version sync.
 
 ## Scripts
 
